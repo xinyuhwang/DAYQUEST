@@ -6,7 +6,25 @@ DAYQUEST turns your daily to-do list into a quest. You plan the day's **missions
 
 ![Today's missions concept](docs/images/today-missions-mockup.png)
 
-> **Status:** design phase. No application code yet. The full spec is in **[docs/DESIGN.md](docs/DESIGN.md)**.
+> **Status:** Phase 0 (foundation). The XP, leveling and capacity engine is built and tested, and a Today page prototype runs on sample data. The full spec is in **[docs/DESIGN.md](docs/DESIGN.md)**.
+
+## Getting started
+
+Requires **Node 22.12+** (the repo pins Node 24 in `.nvmrc`) and **pnpm**.
+
+```bash
+nvm use          # picks up .nvmrc
+pnpm install
+pnpm dev         # http://localhost:3000
+```
+
+| Command | What it does |
+| --- | --- |
+| `pnpm dev` | Start the dev server |
+| `pnpm test` | Run unit tests (engine, formatting, theme contrast) |
+| `pnpm typecheck` | Generate Next.js route types, then type-check |
+| `pnpm lint` | ESLint |
+| `pnpm build` | Production build |
 
 ---
 
@@ -62,6 +80,12 @@ Next.js (App Router) · React · TypeScript · Tailwind CSS · Framer Motion · 
 ## Repository layout
 
 ```text
+src/
+  engine/        Pure TypeScript game engine (XP, leveling, capacity, day rollover) + tests
+  theme/         Theme checks (WCAG AA contrast test)
+  components/    UI primitives and the Today view
+  lib/           Formatting helpers and Phase 0 sample data
+  app/           Next.js App Router (layout, Today page, theme tokens in globals.css)
 docs/
   DESIGN.md      Full design document
   images/        Concept mockups and reference images

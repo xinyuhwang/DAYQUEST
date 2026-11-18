@@ -19,6 +19,7 @@ import {
 } from "@/engine";
 import { Card, Chip, ProgressBar, SectionLabel } from "@/components/ui";
 import { formatMinutes } from "@/lib/format";
+import { signOut } from "@/app/sign-in/actions";
 import {
   CATEGORY_LABEL,
   SAMPLE_CHECKIN,
@@ -96,7 +97,14 @@ export function TodayView() {
       <Card as="header" className="flex flex-col gap-5">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <p className="text-sm font-semibold tracking-wide text-accent">DAYQUEST</p>
+            <div className="flex items-center gap-3">
+              <p className="text-sm font-semibold tracking-wide text-accent">DAYQUEST</p>
+              <form action={signOut}>
+                <button type="submit" className="text-xs text-ink-muted underline-offset-4 hover:underline">
+                  Sign out
+                </button>
+              </form>
+            </div>
             <h1 className="mt-1 text-2xl font-semibold sm:text-3xl">
               {today.toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" })}
             </h1>

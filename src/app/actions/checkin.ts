@@ -48,7 +48,10 @@ export async function submitCheckin(prev: CheckinFormState, form: FormData): Pro
     })
     .select("id")
     .single();
-  if (error) return { ...prev, errors: undefined, message: "Couldn't save your check-in. Please try again." };
+  if (error) {
+    console.error(`Check-in write failed: ${error.message}`);
+    return { ...prev, errors: undefined, message: "Couldn't save your check-in. Please try again." };
+  }
 
   const { error: planError } = await admin
     .from("daily_plans")

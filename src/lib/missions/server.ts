@@ -1,7 +1,9 @@
 import "server-only";
 import { io } from "next/cache";
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { addDays, dayKey, DEFAULT_ROLLOVER_HOUR, type Category, type Difficulty, type Importance, type Mood, type Rating } from "@/engine";
+import { SIGNED_OUT_PARAM, SIGN_IN_PATH } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import type { Database } from "@/lib/supabase/database.types";
 
@@ -39,17 +41,38 @@ export async function getDayContext() {
   const supabase = await createClient();
   const { data: auth } = await supabase.auth.getClaims();
   const userId = auth?.claims?.sub;
-  if (!userId) redirect("/sign-in");
+  if (!userId) redirect(SIGN_IN_PATH);
 
-  const { data: profile } = await supabase
+  const { data: profile, error } = await supabase
     .from("profiles")
     .select("timezone, day_rollover_hour")
     .eq("id", userId)
-    .single();
+    .maybeSingle();
+  if (error) throw new Error(`Couldn't load your profile: ${error.message}`);
+  // Every account gets a profile at signup, so none means the account is gone
+  // and this browser's session is stale. Clear it and sign in again.
+  if (!profile) {
+    await forgetSession();
+    redirect(`${SIGN_IN_PATH}?${SIGNED_OUT_PARAM}=1`);
+  }
 
-  const timezone = profile?.timezone ?? "UTC";
-  const today = dayKey(new Date(), timezone, profile?.day_rollover_hour ?? DEFAULT_ROLLOVER_HOUR);
+  const timezone = profile.timezone;
+  const today = dayKey(new Date(), timezone, profile.day_rollover_hour ?? DEFAULT_ROLLOVER_HOUR);
   return { supabase, userId, timezone, today, tomorrow: addDays(today, 1) };
+}
+
+/**
+ * Drops the auth cookies. Works in server actions, where a redirect is
+ * rendered in the same response and skips the proxy. Server Components can't
+ * set cookies, but their redirect is a fresh request that the proxy clears.
+ */
+async function forgetSession() {
+  const store = await cookies();
+  try {
+    for (const { name } of store.getAll()) if (name.startsWith("sb-")) store.delete(name);
+  } catch {
+    // Rendering a Server Component: the proxy handles it.
+  }
 }
 
 export type DayContext = Awaited<ReturnType<typeof getDayContext>>;

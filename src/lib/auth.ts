@@ -1,5 +1,8 @@
 /** Pure helpers for the sign-in flow (no framework or Supabase imports). */
 
+/** Query flag on the sign-in URL that tells the proxy to clear a stale session. */
+export const SIGNED_OUT_PARAM = "signed_out";
+
 export const SIGN_IN_PATH = "/sign-in";
 
 /**

@@ -26,3 +26,11 @@ export function dayKey(
     day: "2-digit",
   }).format(shifted);
 }
+
+/** Calendar arithmetic on "YYYY-MM-DD" keys (time-zone independent). */
+export function addDays(key: string, days: number): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(key);
+  if (!m) throw new RangeError(`invalid day key: ${key}`);
+  const date = new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]) + days));
+  return date.toISOString().slice(0, 10);
+}

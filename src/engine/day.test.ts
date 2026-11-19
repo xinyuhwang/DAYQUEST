@@ -1,5 +1,19 @@
 import { describe, expect, it } from "vitest";
-import { dayKey } from "./day";
+import { addDays, dayKey } from "./day";
+
+describe("addDays", () => {
+  it("moves across month, year and leap-day boundaries", () => {
+    expect(addDays("2026-11-18", 1)).toBe("2026-11-19");
+    expect(addDays("2026-11-30", 1)).toBe("2026-12-01");
+    expect(addDays("2026-12-31", 1)).toBe("2027-01-01");
+    expect(addDays("2028-02-28", 1)).toBe("2028-02-29");
+    expect(addDays("2026-03-01", -1)).toBe("2026-02-28");
+  });
+
+  it("rejects malformed keys", () => {
+    expect(() => addDays("18/11/2026", 1)).toThrow(RangeError);
+  });
+});
 
 const NY = "America/New_York";
 

@@ -52,6 +52,9 @@ export function MissionForm({
   extraActions?: React.ReactNode;
 }) {
   const [draft, setDraft] = useState(initial);
+  const [customDuration, setCustomDuration] = useState(
+    () => !(DURATION_PRESETS as readonly number[]).includes(initial.estimatedMinutes),
+  );
   const titleRef = useRef<HTMLInputElement>(null);
   const uid = useId();
 
@@ -60,7 +63,10 @@ export function MissionForm({
       const next = await action(prev, form);
       if (next.savedCount > prev.savedCount) {
         // Saved: clear an add form (keeping the category) and let the parent react.
-        if (!initial.id) setDraft((d) => ({ ...EMPTY, category: d.category }));
+        if (!initial.id) {
+          setDraft((d) => ({ ...EMPTY, category: d.category }));
+          setCustomDuration(false);
+        }
         onSaved?.();
         titleRef.current?.focus();
       }
@@ -69,8 +75,6 @@ export function MissionForm({
     { savedCount: 0 },
   );
 
-  const isPreset = (DURATION_PRESETS as readonly number[]).includes(draft.estimatedMinutes);
-  const [customDuration, setCustomDuration] = useState(!isPreset);
   const xp = taskXp(draft, "completed");
   const err = state.errors ?? {};
 

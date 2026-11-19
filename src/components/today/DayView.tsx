@@ -1,14 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { useOptimistic, useState, useTransition } from "react";
-import { EVOLUTION_NAMES, checkLoad, evolutionStage, levelFromTotalXp } from "@/engine";
+import { useCallback, useEffect, useOptimistic, useState, useTransition } from "react";
+import { DAILY_BONUS_XP, EVOLUTION_NAMES, checkLoad, evolutionStage, levelFromTotalXp, type DailyBonusCode } from "@/engine";
 import { createMission, setMissionDone } from "@/app/actions/missions";
 import { signOut } from "@/app/sign-in/actions";
 import { CompanionEgg } from "@/components/Companion";
 import { Card, Chip, ProgressBar, SectionLabel } from "@/components/ui";
 import { formatMinutes } from "@/lib/format";
 import type { LatestCheckin, Mission } from "@/lib/missions/server";
+import type { DayXp } from "@/lib/xp/sync";
 import type { MissionDay } from "@/lib/missions/validate";
 import { MissionForm } from "./MissionForm";
 import { MissionItem } from "./MissionItem";
@@ -19,12 +20,14 @@ export function DayView({
   missions,
   totalXp,
   checkin,
+  todayXp,
 }: {
   day: MissionDay;
   dayLabel: string;
   missions: Mission[];
   totalXp: number;
   checkin: LatestCheckin | null;
+  todayXp: DayXp | null;
 }) {
   // Checkbox taps update instantly; the server result replaces this on refresh.
   const [optimistic, setOptimisticDone] = useOptimistic(missions, (state, change: { id: string; done: boolean }) =>
@@ -42,6 +45,17 @@ export function DayView({
   const plannedMinutes = optimistic.reduce((sum, m) => sum + m.estimatedMinutes, 0);
   const level = levelFromTotalXp(totalXp);
   const stage = evolutionStage(level.level);
+
+  // Celebrate level-ups: compare with the level from the previous render.
+  const [prevLevel, setPrevLevel] = useState(level.level);
+  const [celebration, setCelebration] = useState<{ level: number; evolved: boolean } | null>(null);
+  const dismissCelebration = useCallback(() => setCelebration(null), []);
+  if (level.level !== prevLevel) {
+    setPrevLevel(level.level);
+    if (level.level > prevLevel) {
+      setCelebration({ level: level.level, evolved: evolutionStage(prevLevel) !== stage });
+    }
+  }
 
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-4 px-4 py-6 sm:gap-5 sm:py-10">
@@ -92,6 +106,14 @@ export function DayView({
         </DayTab>
       </nav>
 
+      {celebration && (
+        <LevelUpToast
+          level={celebration.level}
+          evolvedTo={celebration.evolved ? EVOLUTION_NAMES[stage] : null}
+          onDone={dismissCelebration}
+        />
+      )}
+
       {day === "today" && <CapacityCard checkin={checkin} plannedMinutes={plannedMinutes} />}
 
       <Card className="flex flex-col gap-1">
@@ -139,6 +161,8 @@ export function DayView({
           </button>
         )}
       </Card>
+
+      {day === "today" && todayXp && <XpTodayCard xp={todayXp} />}
     </div>
   );
 }
@@ -189,5 +213,85 @@ function CapacityCard({ checkin, plannedMinutes }: { checkin: LatestCheckin | nu
         </p>
       )}
     </Card>
+  );
+}
+
+const BONUS_LABEL: Record<DailyBonusCode, string> = {
+  all_critical: "All critical missions done",
+  xp_target: "Daily XP target reached",
+  two_focus_sessions: "2 focus sessions",
+  reflection: "Evening reflection",
+};
+
+function XpTodayCard({ xp }: { xp: DayXp }) {
+  return (
+    <Card className="flex flex-col gap-3">
+      <div className="flex items-baseline justify-between">
+        <h2 className="text-lg font-semibold">XP today</h2>
+        <span className="text-2xl font-semibold tabular-nums text-xp">{xp.total} XP</span>
+      </div>
+      {xp.target > 0 ? (
+        <div className="flex flex-col gap-2">
+          <div className="flex justify-between text-sm text-ink-muted">
+            <span>Daily target</span>
+            <span className="tabular-nums">
+              {xp.earnedTowardTarget} / {xp.target} XP
+            </span>
+          </div>
+          <ProgressBar value={xp.earnedTowardTarget / xp.target} label="Progress to daily XP target" />
+        </div>
+      ) : (
+        <p className="text-sm text-ink-muted">Your daily XP target appears after the morning check-in.</p>
+      )}
+      <dl className="grid grid-cols-3 gap-2 text-sm">
+        <XpStat label="Missions" value={xp.missions} />
+        <XpStat label="Focus" value={xp.focus} />
+        <XpStat label="Bonuses" value={xp.bonuses} />
+      </dl>
+      {xp.activeBonuses.length > 0 && (
+        <ul className="flex flex-wrap gap-2" aria-label="Bonuses earned today">
+          {xp.activeBonuses.map((code) => (
+            <li key={code}>
+              <Chip tone="accent">
+                +{DAILY_BONUS_XP[code]} · {BONUS_LABEL[code]}
+              </Chip>
+            </li>
+          ))}
+        </ul>
+      )}
+    </Card>
+  );
+}
+
+function XpStat({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="rounded-card bg-surface-2 px-3 py-2">
+      <dt className="text-xs text-ink-muted">{label}</dt>
+      <dd className="font-semibold tabular-nums">{value}</dd>
+    </div>
+  );
+}
+
+function LevelUpToast({ level, evolvedTo, onDone }: { level: number; evolvedTo: string | null; onDone: () => void }) {
+  useEffect(() => {
+    const t = setTimeout(onDone, 6000);
+    return () => clearTimeout(t);
+  }, [onDone]);
+  return (
+    <div
+      role="status"
+      className="fixed inset-x-4 bottom-6 z-10 mx-auto flex max-w-sm items-center gap-3 rounded-card border border-accent bg-surface p-4 shadow-card sm:inset-x-auto sm:right-6 sm:mx-0"
+    >
+      <CompanionEgg className="size-10 shrink-0 motion-safe:animate-bounce" />
+      <div className="flex-1">
+        <p className="font-semibold">Level {level}!</p>
+        <p className="text-sm text-ink-muted">
+          {evolvedTo ? `Your companion evolved into a ${evolvedTo}.` : "Your companion is growing with you."}
+        </p>
+      </div>
+      <button type="button" onClick={onDone} className="rounded-card px-2 py-1 text-sm text-ink-muted hover:bg-surface-2" aria-label="Dismiss">
+        ✕
+      </button>
+    </div>
   );
 }

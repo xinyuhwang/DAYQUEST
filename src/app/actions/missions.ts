@@ -1,8 +1,9 @@
 "use server";
 
 import { refresh } from "next/cache";
-import { getDayContext } from "@/lib/missions/server";
+import { getDayContext, type DayContext } from "@/lib/missions/server";
 import { parseMissionForm, type FieldErrors, type MissionDay } from "@/lib/missions/validate";
+import { syncDailyBonuses, syncTaskXp } from "@/lib/xp/sync";
 
 export interface MissionFormState {
   /** Increments on each success so the client can reset or close the form. */
@@ -13,6 +14,20 @@ export interface MissionFormState {
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const isUuid = (v: unknown): v is string => typeof v === "string" && UUID_RE.test(v);
+
+/**
+ * Today's bonuses depend on today's missions (e.g. "all critical done"), so
+ * any change to them re-checks the bonuses. XP failures are logged, not
+ * shown: the sync is idempotent and the next change repairs the ledger.
+ */
+async function resyncXp(ctx: DayContext, taskId?: string) {
+  try {
+    if (taskId) await syncTaskXp(ctx, taskId);
+    await syncDailyBonuses(ctx, ctx.today);
+  } catch (e) {
+    console.error(e instanceof Error ? e.message : e);
+  }
+}
 
 export async function createMission(prev: MissionFormState, form: FormData): Promise<MissionFormState> {
   const parsed = parseMissionForm(form);
@@ -42,6 +57,7 @@ export async function createMission(prev: MissionFormState, form: FormData): Pro
   });
   if (error) return { ...prev, errors: undefined, message: "Couldn't save the mission. Please try again." };
 
+  if (plannedDate === ctx.today) await resyncXp(ctx);
   refresh();
   return { savedCount: prev.savedCount + 1 };
 }
@@ -60,11 +76,13 @@ export async function updateMission(prev: MissionFormState, form: FormData): Pro
     .eq("id", id);
   if (error) return { ...prev, errors: undefined, message: "Couldn't save your changes. Please try again." };
 
+  // A finished mission keeps the XP it earned; editing only matters for bonuses.
+  await resyncXp(ctx);
   refresh();
   return { savedCount: prev.savedCount + 1 };
 }
 
-/** Check or un-check one of today's missions. XP awards hook in here next (§5.5). */
+/** Check or un-check one of today's missions, then award or reverse its XP. */
 export async function setMissionDone(id: string, done: boolean): Promise<{ ok: boolean }> {
   if (!isUuid(id)) return { ok: false };
   const ctx = await getDayContext();
@@ -78,8 +96,10 @@ export async function setMissionDone(id: string, done: boolean): Promise<{ ok: b
     .eq("id", id)
     .eq("planned_date", ctx.today) // only today's missions can be completed
     .select("id");
+  const ok = !error && data.length === 1;
+  if (ok) await resyncXp(ctx, id);
   refresh();
-  return { ok: !error && data.length === 1 };
+  return { ok };
 }
 
 export async function moveMission(id: string, to: MissionDay): Promise<{ ok: boolean }> {
@@ -90,14 +110,17 @@ export async function moveMission(id: string, to: MissionDay): Promise<{ ok: boo
     .update({ planned_date: to === "today" ? ctx.today : ctx.tomorrow, status: "planned", completed_at: null })
     .eq("id", id)
     .neq("status", "done"); // finished missions stay where they were finished
+  if (!error) await resyncXp(ctx);
   refresh();
   return { ok: !error };
 }
 
+/** Deleting a finished mission takes its XP back, so delete-and-redo can't farm XP. */
 export async function deleteMission(id: string): Promise<{ ok: boolean }> {
   if (!isUuid(id)) return { ok: false };
   const ctx = await getDayContext();
   const { error } = await ctx.supabase.from("tasks").delete().eq("id", id);
+  if (!error) await resyncXp(ctx, id);
   refresh();
   return { ok: !error };
 }

@@ -20,13 +20,13 @@ select is((select day_rollover_hour from public.profiles where id = '00000000-00
 insert into public.tasks (id, user_id, title, est_minutes, planned_date) values
   ('10000000-0000-0000-0000-00000000000a', '00000000-0000-0000-0000-00000000000a', 'A task', 30, '2026-11-18'),
   ('10000000-0000-0000-0000-00000000000b', '00000000-0000-0000-0000-00000000000b', 'B task', 30, '2026-11-18');
-insert into public.xp_transactions (user_id, amount, source_type, source_id, reason) values
-  ('00000000-0000-0000-0000-00000000000a', 52, 'task', '10000000-0000-0000-0000-00000000000a', 'task_completed#1'),
-  ('00000000-0000-0000-0000-00000000000b', 20, 'task', '10000000-0000-0000-0000-00000000000b', 'task_completed#1');
+insert into public.xp_transactions (user_id, amount, source_type, source_id, reason, day) values
+  ('00000000-0000-0000-0000-00000000000a', 52, 'task', '10000000-0000-0000-0000-00000000000a', 'task_completed#1', '2026-11-18'),
+  ('00000000-0000-0000-0000-00000000000b', 20, 'task', '10000000-0000-0000-0000-00000000000b', 'task_completed#1', '2026-11-18');
 
 select throws_ok(
-  $$ insert into public.xp_transactions (user_id, amount, source_type, source_id, reason) values
-     ('00000000-0000-0000-0000-00000000000a', 52, 'task', '10000000-0000-0000-0000-00000000000a', 'task_completed#1') $$,
+  $$ insert into public.xp_transactions (user_id, amount, source_type, source_id, reason, day) values
+     ('00000000-0000-0000-0000-00000000000a', 52, 'task', '10000000-0000-0000-0000-00000000000a', 'task_completed#1', '2026-11-18') $$,
   '23505', null, 'the same XP award cannot be claimed twice');
 
 -- ---------------------------------------------------------------- act as A
@@ -56,8 +56,8 @@ select throws_ok(
 select is((select total_xp from public.user_xp), 52, 'A sees only their own XP total');
 
 select throws_ok(
-  $$ insert into public.xp_transactions (user_id, amount, source_type, source_id, reason)
-     values ('00000000-0000-0000-0000-00000000000a', 9999, 'adjustment', 'x', 'cheat') $$,
+  $$ insert into public.xp_transactions (user_id, amount, source_type, source_id, reason, day)
+     values ('00000000-0000-0000-0000-00000000000a', 9999, 'adjustment', 'x', 'cheat', '2026-11-18') $$,
   '42501', null, 'A cannot award themselves XP');
 
 select throws_ok(

@@ -243,14 +243,14 @@ isOneToOne: false
                   ]
                 },"xp_transactions": {
                   Row: {
-                    "amount": number,"created_at": string,"id": string,"reason": string,"source_id": string,"source_type": Database["public"]['Enums']["xp_source"],"user_id": string
+                    "amount": number,"created_at": string,"day": string,"id": string,"reason": string,"source_id": string,"source_type": Database["public"]['Enums']["xp_source"],"user_id": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "amount": number,"created_at"?: string,"id"?: string,"reason": string,"source_id": string,"source_type": Database["public"]['Enums']["xp_source"],"user_id": string
+                    "amount": number,"created_at"?: string,"day": string,"id"?: string,"reason": string,"source_id": string,"source_type": Database["public"]['Enums']["xp_source"],"user_id": string
                   }
                   Update: {
-                    "amount"?: number,"created_at"?: string,"id"?: string,"reason"?: string,"source_id"?: string,"source_type"?: Database["public"]['Enums']["xp_source"],"user_id"?: string
+                    "amount"?: number,"created_at"?: string,"day"?: string,"id"?: string,"reason"?: string,"source_id"?: string,"source_type"?: Database["public"]['Enums']["xp_source"],"user_id"?: string
                   }
                   Relationships: [
                     

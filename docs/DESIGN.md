@@ -588,7 +588,7 @@ Initial entities. Fields are indicative, not final.
 | `daily_checkins` | id, user_id, date, created_at, energy, focus, mood (nullable), available_min, capacity_min, recommended_min | **Many per day**: snapshots, never overwritten |
 | `daily_plans` | id, user_id, date, checkin_id, xp_target, ordered_task_ids | Points to the check-in it was built from |
 | `focus_sessions` | id, user_id, task_id (required), preset, planned_min, started_at, ended_at, paused_ms, outcome | Server timestamps validate XP |
-| `xp_transactions` | id, user_id, amount, source_type, source_id, reason, created_at | **Unique (user_id, source_type, source_id, reason)**; reversals are negative rows |
+| `xp_transactions` | id, user_id, amount, source_type, source_id, reason, day, created_at | **Unique (user_id, source_type, source_id, reason)**; reversals are negative rows on the same `day` as the award they cancel. Reasons are numbered streams: `task_completed#1`, `task_completed#1:reversal`, `task_completed#2`, `bonus:all_critical#1` |
 | `reflections` | id, user_id, date, notes, carried_task_ids | Source of the +10 bonus |
 | `achievements` | id, code, title, criteria | Static catalog |
 | `user_achievements` | user_id, achievement_id, earned_at | |

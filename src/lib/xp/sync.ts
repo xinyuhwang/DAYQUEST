@@ -2,7 +2,6 @@ import "server-only";
 import {
   activeAwards,
   DAILY_BONUS_XP,
-  dailyXpTarget,
   planLedgerChange,
   qualifyingDailyBonuses,
   sumLedger,
@@ -126,15 +125,16 @@ export async function getDayXp(ctx: DayContext, day: string): Promise<DayXp> {
   };
 }
 
-async function dayTarget(ctx: DayContext, day: string): Promise<number> {
+/** The day's XP target from its latest plan (set by check-ins, §7.4). 0 before any check-in. */
+export async function dayTarget(ctx: DayContext, day: string): Promise<number> {
   const { data } = await ctx.supabase
-    .from("daily_checkins")
-    .select("recommended_min")
+    .from("daily_plans")
+    .select("xp_target")
     .eq("day", day)
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
-  return data ? dailyXpTarget(data.recommended_min) : 0;
+  return data?.xp_target ?? 0;
 }
 
 /**

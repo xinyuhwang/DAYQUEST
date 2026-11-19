@@ -2,15 +2,16 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useOptimistic, useState, useTransition } from "react";
-import { DAILY_BONUS_XP, EVOLUTION_NAMES, checkLoad, evolutionStage, levelFromTotalXp, type DailyBonusCode } from "@/engine";
+import { DAILY_BONUS_XP, EVOLUTION_NAMES, evolutionStage, levelFromTotalXp, type DailyBonusCode } from "@/engine";
 import { createMission, setMissionDone } from "@/app/actions/missions";
 import { signOut } from "@/app/sign-in/actions";
 import { CompanionEgg } from "@/components/Companion";
-import { Card, Chip, ProgressBar, SectionLabel } from "@/components/ui";
+import { Card, Chip, ProgressBar } from "@/components/ui";
 import { formatMinutes } from "@/lib/format";
 import type { LatestCheckin, Mission } from "@/lib/missions/server";
 import type { DayXp } from "@/lib/xp/sync";
 import type { MissionDay } from "@/lib/missions/validate";
+import { CapacityCard } from "./Checkin";
 import { MissionForm } from "./MissionForm";
 import { MissionItem } from "./MissionItem";
 
@@ -114,7 +115,13 @@ export function DayView({
         />
       )}
 
-      {day === "today" && <CapacityCard checkin={checkin} plannedMinutes={plannedMinutes} />}
+      {day === "today" && (
+        <CapacityCard
+          checkin={checkin}
+          plannedMinutes={plannedMinutes}
+          optionalOpen={optimistic.filter((m) => m.importance === "optional" && m.status !== "done").length}
+        />
+      )}
 
       <Card className="flex flex-col gap-1">
         <div className="mb-1 flex items-baseline justify-between gap-2">
@@ -178,41 +185,6 @@ function DayTab({ href, active, children }: { href: string; active: boolean; chi
     >
       {children}
     </Link>
-  );
-}
-
-function CapacityCard({ checkin, plannedMinutes }: { checkin: LatestCheckin | null; plannedMinutes: number }) {
-  if (!checkin) {
-    return (
-      <Card className="flex flex-col gap-1">
-        <SectionLabel>Today&apos;s capacity</SectionLabel>
-        <p className="text-sm text-ink-muted">
-          You haven&apos;t checked in yet. The morning check-in (coming next) will tell you how much of your{" "}
-          {plannedMinutes > 0 ? `${formatMinutes(plannedMinutes)} plan` : "day"} is realistic.
-        </p>
-      </Card>
-    );
-  }
-  const load = checkLoad(plannedMinutes, checkin.recommendedMinutes);
-  return (
-    <Card className="flex flex-col gap-3">
-      <div className="flex flex-wrap items-start justify-between gap-2">
-        <div>
-          <SectionLabel>Today&apos;s capacity</SectionLabel>
-          <p className="mt-1 text-2xl font-semibold tabular-nums text-xp">{formatMinutes(checkin.recommendedMinutes)}</p>
-          <p className="text-sm text-ink-muted">
-            energy {checkin.energy}/5 · focus {checkin.focus}/5 · {formatMinutes(checkin.availableMinutes)} available
-          </p>
-        </div>
-        <Chip tone={load.overloaded ? "warn" : "xp"}>{load.overloaded ? "Over capacity" : "Balanced day"}</Chip>
-      </div>
-      {load.overloaded && (
-        <p className="rounded-card bg-warn-soft px-4 py-3 text-sm text-warn">
-          You&apos;ve planned {formatMinutes(plannedMinutes)}, {formatMinutes(load.overByMinutes)} more than today&apos;s capacity.
-          Consider moving an Optional mission to tomorrow. That&apos;s planning, not falling behind.
-        </p>
-      )}
-    </Card>
   );
 }
 

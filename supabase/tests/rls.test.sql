@@ -2,7 +2,7 @@
 -- Run with: pnpm db:test
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(22);
+select plan(25);
 
 -- Two users, created the way Supabase Auth would (fires the signup trigger).
 insert into auth.users (id, email) values
@@ -23,6 +23,10 @@ insert into public.tasks (id, user_id, title, est_minutes, planned_date) values
 insert into public.xp_transactions (user_id, amount, source_type, source_id, reason, day) values
   ('00000000-0000-0000-0000-00000000000a', 52, 'task', '10000000-0000-0000-0000-00000000000a', 'task_completed#1', '2026-11-18'),
   ('00000000-0000-0000-0000-00000000000b', 20, 'task', '10000000-0000-0000-0000-00000000000b', 'task_completed#1', '2026-11-18');
+
+insert into public.daily_checkins (user_id, day, energy, focus, available_min, capacity_min, recommended_min) values
+  ('00000000-0000-0000-0000-00000000000a', '2026-11-18', 3, 3, 240, 204, 163),
+  ('00000000-0000-0000-0000-00000000000b', '2026-11-18', 4, 4, 120, 120, 96);
 
 select throws_ok(
   $$ insert into public.xp_transactions (user_id, amount, source_type, source_id, reason, day) values
@@ -94,6 +98,17 @@ select throws_ok(
 select throws_ok(
   $$ update public.profiles set id = '00000000-0000-0000-0000-00000000000b' $$,
   '42501', null, 'A cannot change their profile id');
+
+select throws_ok(
+  $$ insert into public.daily_checkins (day, energy, focus, available_min, capacity_min, recommended_min)
+     values ('2026-11-18', 5, 5, 600, 600, 10) $$,
+  '42501', null, 'A cannot write a check-in directly (it sets the XP target)');
+
+select throws_ok(
+  $$ insert into public.daily_plans (day, xp_target) values ('2026-11-18', 10) $$,
+  '42501', null, 'A cannot set their own daily XP target');
+
+select is((select count(*) from public.daily_checkins), 1::bigint, 'A sees only their own check-ins');
 
 -- ---------------------------------------------------------------- act as B
 set local request.jwt.claims = '{"sub": "00000000-0000-0000-0000-00000000000b", "role": "authenticated"}';

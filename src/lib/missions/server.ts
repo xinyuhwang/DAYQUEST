@@ -1,7 +1,7 @@
 import "server-only";
 import { io } from "next/cache";
 import { redirect } from "next/navigation";
-import { addDays, dayKey, DEFAULT_ROLLOVER_HOUR, type Category, type Difficulty, type Importance, type Rating } from "@/engine";
+import { addDays, dayKey, DEFAULT_ROLLOVER_HOUR, type Category, type Difficulty, type Importance, type Mood, type Rating } from "@/engine";
 import { createClient } from "@/lib/supabase/server";
 import type { Database } from "@/lib/supabase/database.types";
 
@@ -20,8 +20,12 @@ export interface Mission {
 export interface LatestCheckin {
   energy: Rating;
   focus: Rating;
+  mood: Mood | null;
   availableMinutes: number;
+  capacityMinutes: number;
   recommendedMinutes: number;
+  /** "14:05" in the user's zone. */
+  time: string;
 }
 
 /**
@@ -79,7 +83,7 @@ export async function getTotalXp(ctx: DayContext): Promise<number> {
 export async function getLatestCheckin(ctx: DayContext, day: string): Promise<LatestCheckin | null> {
   const { data } = await ctx.supabase
     .from("daily_checkins")
-    .select("energy, focus, available_min, recommended_min")
+    .select("energy, focus, mood, available_min, capacity_min, recommended_min, created_at")
     .eq("day", day)
     .order("created_at", { ascending: false })
     .limit(1)
@@ -88,7 +92,14 @@ export async function getLatestCheckin(ctx: DayContext, day: string): Promise<La
   return {
     energy: data.energy as Rating,
     focus: data.focus as Rating,
+    mood: data.mood,
     availableMinutes: data.available_min,
+    capacityMinutes: data.capacity_min,
     recommendedMinutes: data.recommended_min,
+    time: new Date(data.created_at).toLocaleTimeString("en-US", {
+      timeZone: ctx.timezone,
+      hour: "numeric",
+      minute: "2-digit",
+    }),
   };
 }

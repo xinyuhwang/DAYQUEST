@@ -136,3 +136,18 @@ export function dailyXpTarget(recommendedMinutes: number): number {
 export function adjustedXpTarget(currentTarget: number, recalculated: number): number {
   return Math.min(currentTarget, recalculated);
 }
+
+/**
+ * The day's XP target after a check-in (§7.4). The first check-in sets it from
+ * the recommended workload. A re-check-in recalculates from the time left, so
+ * the new target is what's already earned plus the target for the rest of the
+ * day, and it can only lower the current target.
+ */
+export function targetAfterCheckin(
+  recommendedMinutes: number,
+  previous?: { target: number; earnedSoFar: number },
+): number {
+  const fresh = dailyXpTarget(recommendedMinutes);
+  if (!previous) return fresh;
+  return adjustedXpTarget(previous.target, previous.earnedSoFar + fresh);
+}

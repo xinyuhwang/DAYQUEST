@@ -1,4 +1,4 @@
-import type { Category, Difficulty, Importance } from "@/engine";
+import type { Category, Difficulty, Importance, Mood, Rating } from "@/engine";
 
 export const CATEGORY_LABEL: Record<Category, string> = {
   deep_work: "Deep Work",
@@ -29,3 +29,28 @@ export const DIFFICULTIES = Object.keys(DIFFICULTY_LABEL) as Difficulty[];
 
 /** Duration presets from DESIGN.md §4; any 1–600 minute value is allowed. */
 export const DURATION_PRESETS = [15, 30, 60, 90] as const;
+
+export const ENERGY_LABEL: Record<Rating, string> = { 1: "Drained", 2: "Low", 3: "Okay", 4: "Good", 5: "Vibrant" };
+export const FOCUS_LABEL: Record<Rating, string> = { 1: "Foggy", 2: "Scattered", 3: "Steady", 4: "Sharp", 5: "Clear" };
+export const RATINGS = [1, 2, 3, 4, 5] as const satisfies readonly Rating[];
+
+export const MOOD_LABEL: Record<Mood, string> = {
+  great: "Great",
+  calm: "Calm",
+  neutral: "Neutral",
+  tired: "Tired",
+  anxious: "Anxious",
+  low: "Low",
+};
+export const MOOD_EMOJI: Record<Mood, string> = {
+  great: "😄",
+  calm: "😌",
+  neutral: "😐",
+  tired: "🥱",
+  anxious: "😟",
+  low: "😔",
+};
+export const MOODS = Object.keys(MOOD_LABEL) as Mood[];
+
+/** Available-time slider (§7.1): 30 min steps up to 10 h. */
+export const AVAILABLE_MIN = { min: 30, max: 600, step: 30 } as const;

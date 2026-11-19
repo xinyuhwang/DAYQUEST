@@ -5,6 +5,7 @@ import {
   dailyXpTarget,
   focusSessionXp,
   qualifyingDailyBonuses,
+  targetAfterCheckin,
   taskXp,
   type DayProgress,
 } from "./xp";
@@ -126,5 +127,18 @@ describe("dailyXpTarget", () => {
   it("can drop but never rise after a mid-day re-check-in", () => {
     expect(adjustedXpTarget(160, 110)).toBe(110);
     expect(adjustedXpTarget(160, 200)).toBe(160);
+  });
+});
+
+describe("targetAfterCheckin", () => {
+  it("sets the target from the first check-in", () => {
+    expect(targetAfterCheckin(163)).toBe(160);
+  });
+
+  it("re-check-in: earned so far plus the rest of the day, never higher than before", () => {
+    // Earned 70, now 1h left at low energy → 70 + 40.
+    expect(targetAfterCheckin(42, { target: 160, earnedSoFar: 70 })).toBe(110);
+    // Feeling better doesn't raise the bar.
+    expect(targetAfterCheckin(300, { target: 160, earnedSoFar: 70 })).toBe(160);
   });
 });

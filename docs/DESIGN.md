@@ -285,7 +285,8 @@ The rest is light work. The buffer is the 20 % already removed in §7.2.
 You can re-check in at any point in the day (for example, exhausted after lunch).
 
 - Remaining capacity is recalculated from the remaining time and the new E and F values.
-- The daily XP target is lowered to match, and never raised mid-day.
+- The daily XP target is lowered to match, and never raised mid-day: new target = min(current target, XP already earned toward the target + the target for the remaining recommended minutes).
+- Check-ins and daily plans are written by the server, which computes capacity and the target with the engine. Users can read them but not write or edit them, because the target unlocks the +20 bonus (principle 4).
 - The coach offers to move Optional missions to tomorrow, framed as planning, not failure.
 - Each check-in is stored as a **new snapshot**; earlier ones are never overwritten.
 

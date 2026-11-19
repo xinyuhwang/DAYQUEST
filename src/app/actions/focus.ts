@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { CUSTOM_FOCUS_RANGE, remainingMs } from "@/engine";
 import { getDayContext } from "@/lib/missions/server";
 import { toClock } from "@/lib/focus/server";
+import { setTaskDone } from "@/lib/missions/complete";
 import { syncDailyBonuses, syncFocusXp } from "@/lib/xp/sync";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -103,4 +104,14 @@ export async function endFocus(
   }
   const focusedMinutes = (Date.parse(row.ended_at) - Date.parse(row.started_at) - Number(row.paused_ms)) / 60_000;
   return { outcome: row.outcome, xp, focusedMinutes: Math.max(0, Math.floor(focusedMinutes)) };
+}
+
+/**
+ * "Mark mission done" from the result screen. Unlike setMissionDone it doesn't
+ * refresh the route: the session has ended, so a refreshed /focus would replace
+ * the result screen with "No focus session running".
+ */
+export async function completeFocusMission(taskId: string): Promise<{ ok: boolean }> {
+  if (!isUuid(taskId)) return { ok: false };
+  return { ok: await setTaskDone(await getDayContext(), taskId, true) };
 }

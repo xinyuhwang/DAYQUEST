@@ -4,6 +4,7 @@ import { DaySkeleton } from "@/components/today/DaySkeleton";
 import { formatDayLabel } from "@/lib/format";
 import { getDayContext, getLatestCheckin, getTotalXp, listMissions } from "@/lib/missions/server";
 import { getOpenSession } from "@/lib/focus/server";
+import { getWrapUpState } from "@/lib/reflection/server";
 import { getDayXp } from "@/lib/xp/sync";
 
 export default function TodayPage({ searchParams }: PageProps<"/">) {
@@ -23,12 +24,13 @@ async function Day({ searchParams }: { searchParams: PageProps<"/">["searchParam
 
   const ctx = await getDayContext();
   const dayKey = view === "today" ? ctx.today : ctx.tomorrow;
-  const [missions, totalXp, checkin, todayXp, focusSession] = await Promise.all([
+  const [missions, totalXp, checkin, todayXp, focusSession, wrapUp] = await Promise.all([
     listMissions(ctx, dayKey),
     getTotalXp(ctx),
     view === "today" ? getLatestCheckin(ctx, ctx.today) : Promise.resolve(null),
     view === "today" ? getDayXp(ctx, ctx.today) : Promise.resolve(null),
     getOpenSession(ctx),
+    view === "today" ? getWrapUpState(ctx) : Promise.resolve(null),
   ]);
 
   return (
@@ -41,6 +43,7 @@ async function Day({ searchParams }: { searchParams: PageProps<"/">["searchParam
       checkin={checkin}
       todayXp={todayXp}
       focusSession={focusSession && { taskTitle: focusSession.taskTitle }}
+      wrapUp={wrapUp}
     />
   );
 }

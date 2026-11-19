@@ -106,6 +106,12 @@ Five main areas:
 `planned → active → done`, plus `partial`, `carried_over`, `dropped`.
 
 - **Carry-over** happens in the evening reflection. The user chooses which unfinished missions move to tomorrow. Nothing piles up silently.
+  - ✅ A carried mission is **copied** to the next day (linked by `carried_from`, shown with a "Carried over" chip). The original stays on its day as `carried_over`, hidden from the list but kept for history.
+  - ✅ Optional missions start unticked; the rest start ticked. Unticked missions stay on their day.
+  - ✅ Carrying away an unfinished Critical mission doesn't earn "all critical done": it still counts as planned on its day.
+  - ✅ The reflection and the carry-over are written in one server-side transaction, once per day, so a double submit can't carry twice.
+  - ✅ **Missed evening:** if a day ended without a reflection and left unfinished missions, the next day's Today page shows "Yesterday's loose ends" to carry them into today. Doing that still earns that day's +10.
+  - ✅ The reflection is open from 20:00 until the rollover hour; the server enforces the window. Notes are optional.
 - **Un-checking** a completed mission reverses its XP with a compensating transaction (§5.5).
 
 ---

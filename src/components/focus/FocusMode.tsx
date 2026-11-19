@@ -3,8 +3,15 @@
 import Link from "next/link";
 import { useEffect, useRef, useState, useSyncExternalStore, useTransition } from "react";
 import { breakMinutes, FOCUS_EARLY_END_MIN_FRACTION, FOCUS_EARLY_END_XP, focusedMs, remainingMs } from "@/engine";
-import { endFocus, pauseFocus, resumeFocus, startFocus, type FocusClockState, type FocusResult } from "@/app/actions/focus";
-import { setMissionDone } from "@/app/actions/missions";
+import {
+  completeFocusMission,
+  endFocus,
+  pauseFocus,
+  resumeFocus,
+  startFocus,
+  type FocusClockState,
+  type FocusResult,
+} from "@/app/actions/focus";
 import { CompanionEgg } from "@/components/Companion";
 import { Card } from "@/components/ui";
 import { AMBIENT_LABEL, chime, notify, useAmbient, type Ambient } from "./sound";
@@ -203,7 +210,7 @@ export function FocusMode({
             onBreak={() => setPhase({ kind: "break", minutes: breakLength, endsAt: now + breakLength * 60_000 })}
             onMarkDone={() =>
               startTransition(async () => {
-                const r = await setMissionDone(clock.taskId, true);
+                const r = await completeFocusMission(clock.taskId);
                 if (r.ok) setMarkedDone(true);
                 else setError("Couldn't mark the mission done.");
               })

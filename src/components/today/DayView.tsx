@@ -9,11 +9,13 @@ import { CompanionEgg } from "@/components/Companion";
 import { Card, Chip, ProgressBar } from "@/components/ui";
 import { formatMinutes } from "@/lib/format";
 import type { LatestCheckin, Mission } from "@/lib/missions/server";
+import type { WrapUpState } from "@/lib/reflection/server";
 import type { DayXp } from "@/lib/xp/sync";
 import type { MissionDay } from "@/lib/missions/validate";
 import { CapacityCard } from "./Checkin";
 import { MissionForm } from "./MissionForm";
 import { MissionItem } from "./MissionItem";
+import { WrapUpCard } from "./WrapUp";
 
 export function DayView({
   day,
@@ -23,6 +25,7 @@ export function DayView({
   checkin,
   todayXp,
   focusSession,
+  wrapUp,
 }: {
   day: MissionDay;
   dayLabel: string;
@@ -32,6 +35,8 @@ export function DayView({
   todayXp: DayXp | null;
   /** The running focus session, if any. */
   focusSession: { taskTitle: string } | null;
+  /** Evening reflection state; today's view only. */
+  wrapUp: WrapUpState | null;
 }) {
   // Checkbox taps update instantly; the server result replaces this on refresh.
   const [optimistic, setOptimisticDone] = useOptimistic(missions, (state, change: { id: string; done: boolean }) =>
@@ -131,6 +136,9 @@ export function DayView({
         </Link>
       )}
 
+      {wrapUp?.yesterday && <WrapUpCard key="yesterday" wrapUp={wrapUp.yesterday} />}
+      {wrapUp?.tonight && !wrapUp.tonight.reflection && <WrapUpCard key="tonight" wrapUp={wrapUp.tonight} />}
+
       {day === "today" && (
         <CapacityCard
           checkin={checkin}
@@ -187,6 +195,10 @@ export function DayView({
       </Card>
 
       {day === "today" && todayXp && <XpTodayCard xp={todayXp} />}
+      {wrapUp?.tonight?.reflection && <WrapUpCard key="done" wrapUp={wrapUp.tonight} />}
+      {day === "today" && wrapUp && !wrapUp.tonight && (
+        <p className="px-1 text-center text-xs text-ink-muted">The evening reflection opens at 8 PM.</p>
+      )}
     </div>
   );
 }

@@ -104,6 +104,7 @@ export function MissionItem({
             <Chip tone={mission.importance === "critical" ? "warn" : "neutral"}>{IMPORTANCE_LABEL[mission.importance]}</Chip>
             <Chip>{DIFFICULTY_LABEL[mission.difficulty]}</Chip>
             {quick && <Chip>Quick task · ½ XP</Chip>}
+            {mission.carriedOver && <Chip>↻ Carried over</Chip>}
           </span>
         </div>
 

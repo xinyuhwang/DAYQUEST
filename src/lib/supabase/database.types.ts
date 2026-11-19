@@ -183,17 +183,23 @@ isOneToOne: false
                   ]
                 },"tasks": {
                   Row: {
-                    "category": Database["public"]['Enums']["category"],"completed_at": string | null,"created_at": string,"difficulty": Database["public"]['Enums']["difficulty"],"est_minutes": number,"id": string,"importance": Database["public"]['Enums']["importance"],"parent_id": string | null,"planned_date": string,"quest_id": string | null,"sort_order": number,"status": Database["public"]['Enums']["task_status"],"title": string,"updated_at": string,"user_id": string
+                    "carried_from": string | null,"category": Database["public"]['Enums']["category"],"completed_at": string | null,"created_at": string,"difficulty": Database["public"]['Enums']["difficulty"],"est_minutes": number,"id": string,"importance": Database["public"]['Enums']["importance"],"parent_id": string | null,"planned_date": string,"quest_id": string | null,"sort_order": number,"status": Database["public"]['Enums']["task_status"],"title": string,"updated_at": string,"user_id": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "category"?: Database["public"]['Enums']["category"],"completed_at"?: string | null,"created_at"?: string,"difficulty"?: Database["public"]['Enums']["difficulty"],"est_minutes": number,"id"?: string,"importance"?: Database["public"]['Enums']["importance"],"parent_id"?: string | null,"planned_date": string,"quest_id"?: string | null,"sort_order"?: number,"status"?: Database["public"]['Enums']["task_status"],"title": string,"updated_at"?: string,"user_id"?: string
+                    "carried_from"?: string | null,"category"?: Database["public"]['Enums']["category"],"completed_at"?: string | null,"created_at"?: string,"difficulty"?: Database["public"]['Enums']["difficulty"],"est_minutes": number,"id"?: string,"importance"?: Database["public"]['Enums']["importance"],"parent_id"?: string | null,"planned_date": string,"quest_id"?: string | null,"sort_order"?: number,"status"?: Database["public"]['Enums']["task_status"],"title": string,"updated_at"?: string,"user_id"?: string
                   }
                   Update: {
-                    "category"?: Database["public"]['Enums']["category"],"completed_at"?: string | null,"created_at"?: string,"difficulty"?: Database["public"]['Enums']["difficulty"],"est_minutes"?: number,"id"?: string,"importance"?: Database["public"]['Enums']["importance"],"parent_id"?: string | null,"planned_date"?: string,"quest_id"?: string | null,"sort_order"?: number,"status"?: Database["public"]['Enums']["task_status"],"title"?: string,"updated_at"?: string,"user_id"?: string
+                    "carried_from"?: string | null,"category"?: Database["public"]['Enums']["category"],"completed_at"?: string | null,"created_at"?: string,"difficulty"?: Database["public"]['Enums']["difficulty"],"est_minutes"?: number,"id"?: string,"importance"?: Database["public"]['Enums']["importance"],"parent_id"?: string | null,"planned_date"?: string,"quest_id"?: string | null,"sort_order"?: number,"status"?: Database["public"]['Enums']["task_status"],"title"?: string,"updated_at"?: string,"user_id"?: string
                   }
                   Relationships: [
                     {
+      foreignKeyName: "tasks_carried_from_fkey"
+      columns: ["carried_from","user_id"]
+isOneToOne: false
+      referencedRelation: "tasks"
+      referencedColumns: ["id","user_id"]
+    },{
       foreignKeyName: "tasks_parent_id_user_id_fkey"
       columns: ["parent_id","user_id"]
 isOneToOne: false
@@ -341,6 +347,21 @@ isOneToOne: false
                           SetofOptions: {
         from: "*"
         to: "focus_sessions"
+        isOneToOne: true
+        isSetofReturn: false
+      } },
+"wrap_up_day":
+{ Args: { "p_carry": (string)[],"p_day": string,"p_notes": string,"p_to": string,"p_user": string }; Returns: {
+              "carried_task_ids": (string)[],
+"created_at": string,
+"day": string,
+"id": string,
+"notes": string | null,
+"user_id": string
+            }
+                          SetofOptions: {
+        from: "*"
+        to: "reflections"
         isOneToOne: true
         isSetofReturn: false
       } }

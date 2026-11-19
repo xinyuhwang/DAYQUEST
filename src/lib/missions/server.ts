@@ -17,6 +17,8 @@ export interface Mission {
   difficulty: Difficulty;
   estimatedMinutes: number;
   status: TaskStatus;
+  /** Carried over from an earlier day's evening reflection. */
+  carriedOver: boolean;
 }
 
 export interface LatestCheckin {
@@ -81,7 +83,7 @@ export type DayContext = Awaited<ReturnType<typeof getDayContext>>;
 export async function listMissions(ctx: DayContext, day: string): Promise<Mission[]> {
   const { data, error } = await ctx.supabase
     .from("tasks")
-    .select("id, title, category, importance, difficulty, est_minutes, status")
+    .select("id, title, category, importance, difficulty, est_minutes, status, carried_from")
     .eq("planned_date", day)
     .is("parent_id", null)
     .neq("status", "carried_over")
@@ -96,6 +98,7 @@ export async function listMissions(ctx: DayContext, day: string): Promise<Missio
     difficulty: row.difficulty,
     estimatedMinutes: row.est_minutes,
     status: row.status,
+    carriedOver: row.carried_from !== null,
   }));
 }
 

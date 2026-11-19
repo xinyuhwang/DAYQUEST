@@ -2,7 +2,7 @@
 -- Run with: pnpm db:test
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(31);
+select plan(40);
 
 -- Two users, created the way Supabase Auth would (fires the signup trigger).
 insert into auth.users (id, email) values
@@ -137,6 +137,14 @@ select throws_ok(
 
 select is((select count(*) from public.daily_checkins), 1::bigint, 'A sees only their own check-ins');
 
+select throws_ok(
+  $$ insert into public.reflections (day) values ('2026-11-18') $$,
+  '42501', null, 'A cannot write a reflection directly (it earns a bonus)');
+
+select throws_ok(
+  $$ select public.wrap_up_day('00000000-0000-0000-0000-00000000000a', '2026-11-18', '2026-11-19', null, '{}') $$,
+  '42501', null, 'A cannot call wrap_up_day (server only)');
+
 -- ---------------------------------------------------------------- act as B
 set local request.jwt.claims = '{"sub": "00000000-0000-0000-0000-00000000000b", "role": "authenticated"}';
 select is((select name from public.companions), null, 'B does not see A''s companion name');
@@ -145,6 +153,36 @@ select is((select name from public.companions), null, 'B does not see A''s compa
 reset role;
 select is((select title from public.tasks where id = '10000000-0000-0000-0000-00000000000b'), 'B task',
   'A''s update and delete attempts left B''s task untouched');
+
+-- ---------------------------------------------------------------- wrap-up (server)
+set local role service_role;
+select lives_ok(
+  $$ select public.wrap_up_day('00000000-0000-0000-0000-00000000000a', '2026-11-18', '2026-11-19', '  good day ',
+       array['10000000-0000-0000-0000-00000000000a', '10000000-0000-0000-0000-00000000000b']::uuid[]) $$,
+  'the server can wrap up A''s day');
+reset role;
+
+select is((select status::text from public.tasks where id = '10000000-0000-0000-0000-00000000000a'), 'carried_over',
+  'the carried mission is marked carried_over on its day');
+select is(
+  (select count(*) from public.tasks where carried_from = '10000000-0000-0000-0000-00000000000a'
+     and planned_date = '2026-11-19' and status = 'planned' and title = 'A task'),
+  1::bigint, 'a planned copy lands on the next day');
+select is((select status::text from public.tasks where id = '10000000-0000-0000-0000-00000000000b'), 'planned',
+  'another user''s mission in the carry list is ignored');
+select is(
+  (select notes || ' ' || array_to_string(carried_task_ids, ',') from public.reflections
+     where user_id = '00000000-0000-0000-0000-00000000000a'),
+  'good day 10000000-0000-0000-0000-00000000000a', 'the reflection records trimmed notes and what was carried');
+
+set local role service_role;
+select throws_ok(
+  $$ select public.wrap_up_day('00000000-0000-0000-0000-00000000000a', '2026-11-18', '2026-11-19', null,
+       array['10000000-0000-0000-0000-00000000000a']::uuid[]) $$,
+  '23505', null, 'a day can be wrapped up only once');
+reset role;
+select is((select count(*) from public.tasks where carried_from is not null), 1::bigint,
+  'a repeated wrap-up carries nothing twice');
 
 -- ---------------------------------------------------------------- anonymous
 set local role anon;

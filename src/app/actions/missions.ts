@@ -1,6 +1,7 @@
 "use server";
 
 import { refresh } from "next/cache";
+import { setTaskDone } from "@/lib/missions/complete";
 import { getDayContext, type DayContext } from "@/lib/missions/server";
 import { parseMissionForm, type FieldErrors, type MissionDay } from "@/lib/missions/validate";
 import { syncDailyBonuses, syncTaskXp } from "@/lib/xp/sync";
@@ -85,19 +86,7 @@ export async function updateMission(prev: MissionFormState, form: FormData): Pro
 /** Check or un-check one of today's missions, then award or reverse its XP. */
 export async function setMissionDone(id: string, done: boolean): Promise<{ ok: boolean }> {
   if (!isUuid(id)) return { ok: false };
-  const ctx = await getDayContext();
-  const { data, error } = await ctx.supabase
-    .from("tasks")
-    .update(
-      done
-        ? { status: "done", completed_at: new Date().toISOString() }
-        : { status: "planned", completed_at: null },
-    )
-    .eq("id", id)
-    .eq("planned_date", ctx.today) // only today's missions can be completed
-    .select("id");
-  const ok = !error && data.length === 1;
-  if (ok) await resyncXp(ctx, id);
+  const ok = await setTaskDone(await getDayContext(), id, done);
   refresh();
   return { ok };
 }

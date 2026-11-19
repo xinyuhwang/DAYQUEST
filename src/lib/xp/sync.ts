@@ -1,6 +1,9 @@
 import "server-only";
 import {
   activeAwards,
+  applyFocusCap,
+  dayKey,
+  focusSessionXp,
   DAILY_BONUS_XP,
   planLedgerChange,
   qualifyingDailyBonuses,
@@ -16,6 +19,7 @@ import type { DayContext } from "@/lib/missions/server";
 type XpSource = Database["public"]["Enums"]["xp_source"];
 
 const TASK_BASE = "task_completed";
+const FOCUS_BASE = "focus_session";
 const bonusBase = (code: DailyBonusCode) => `bonus:${code}`;
 const BONUS_CODES = Object.keys(DAILY_BONUS_XP) as DailyBonusCode[];
 
@@ -87,6 +91,42 @@ async function syncTaskXpOnce(ctx: DayContext, taskId: string) {
     : 0;
   const changes = planLedgerChange(entries, TASK_BASE, done, amount, task?.planned_date ?? ctx.today);
   await append(ctx, "task", taskId, changes);
+}
+
+/**
+ * Awards XP for an ended focus session (§5.2): measured focused time decides
+ * the amount, and the day's 120 XP focus cap trims it. Sessions never change
+ * after ending, so this writes at most once.
+ */
+export async function syncFocusXp(ctx: DayContext, sessionId: string): Promise<{ xp: number; day: string }> {
+  const { data: s } = await ctx.supabase
+    .from("focus_sessions")
+    .select("task_id, planned_min, started_at, ended_at, paused_ms")
+    .eq("id", sessionId)
+    .not("ended_at", "is", null)
+    .maybeSingle();
+  if (!s?.ended_at) return { xp: 0, day: ctx.today };
+
+  const day = dayKey(new Date(s.started_at), ctx.timezone, ctx.rolloverHour);
+  const entries = await ledgerFor(ctx, "focus_session", sessionId);
+  const already = sumLedger(entries);
+  if (entries.length > 0) return { xp: already, day };
+
+  const focusedMinutes = (Date.parse(s.ended_at) - Date.parse(s.started_at) - Number(s.paused_ms)) / 60_000;
+  const award = focusSessionXp({ taskId: s.task_id, plannedMinutes: s.planned_min, focusedMinutes });
+
+  const { data: dayFocus, error } = await createAdminClient()
+    .from("xp_transactions")
+    .select("amount")
+    .eq("user_id", ctx.userId)
+    .eq("source_type", "focus_session")
+    .eq("day", day);
+  if (error) throw new Error(`XP ledger read failed: ${error.message}`);
+  const earnedToday = (dayFocus ?? []).reduce((sum, r) => sum + r.amount, 0);
+
+  const amount = applyFocusCap(award, earnedToday);
+  await append(ctx, "focus_session", sessionId, planLedgerChange([], FOCUS_BASE, amount > 0, amount, day));
+  return { xp: amount, day };
 }
 
 export interface DayXp {

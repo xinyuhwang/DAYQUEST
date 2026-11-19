@@ -101,14 +101,14 @@ isOneToOne: false
                   ]
                 },"focus_sessions": {
                   Row: {
-                    "ended_at": string | null,"id": string,"outcome": Database["public"]['Enums']["focus_outcome"] | null,"paused_ms": number,"planned_min": number,"started_at": string,"task_id": string,"user_id": string
+                    "ended_at": string | null,"id": string,"outcome": Database["public"]['Enums']["focus_outcome"] | null,"paused_at": string | null,"paused_ms": number,"planned_min": number,"started_at": string,"task_id": string,"user_id": string,"focus_paused_ms": number | null
                   }
-                  ComputedFields: never
+                  ComputedFields: "focus_paused_ms"
                   Insert: {
-                    "ended_at"?: string | null,"id"?: string,"outcome"?: Database["public"]['Enums']["focus_outcome"] | null,"paused_ms"?: number,"planned_min": number,"started_at"?: string,"task_id": string,"user_id": string
+                    "ended_at"?: string | null,"id"?: string,"outcome"?: Database["public"]['Enums']["focus_outcome"] | null,"paused_at"?: string | null,"paused_ms"?: number,"planned_min": number,"started_at"?: string,"task_id": string,"user_id": string
                   }
                   Update: {
-                    "ended_at"?: string | null,"id"?: string,"outcome"?: Database["public"]['Enums']["focus_outcome"] | null,"paused_ms"?: number,"planned_min"?: number,"started_at"?: string,"task_id"?: string,"user_id"?: string
+                    "ended_at"?: string | null,"id"?: string,"outcome"?: Database["public"]['Enums']["focus_outcome"] | null,"paused_at"?: string | null,"paused_ms"?: number,"planned_min"?: number,"started_at"?: string,"task_id"?: string,"user_id"?: string
                   }
                   Relationships: [
                     {
@@ -270,10 +270,50 @@ isOneToOne: false
           }
           Functions: {
             "end_focus_session":
-{ Args: { "p_paused_ms"?: number,"p_session_id": string }; Returns: {
+{ Args: { "p_session_id": string }; Returns: {
               "ended_at": string | null,
 "id": string,
 "outcome": Database["public"]['Enums']["focus_outcome"] | null,
+"paused_at": string | null,
+"paused_ms": number,
+"planned_min": number,
+"started_at": string,
+"task_id": string,
+"user_id": string
+            }
+                          SetofOptions: {
+        from: "*"
+        to: "focus_sessions"
+        isOneToOne: true
+        isSetofReturn: false
+      } },
+"focus_paused_ms":
+{ Args: { "s": Omit<Database["public"]['Tables']["focus_sessions"]['Row'], Database["public"]['Tables']["focus_sessions"]['ComputedFields']> }; Returns: number
+                           },
+"pause_focus_session":
+{ Args: { "p_session_id": string }; Returns: {
+              "ended_at": string | null,
+"id": string,
+"outcome": Database["public"]['Enums']["focus_outcome"] | null,
+"paused_at": string | null,
+"paused_ms": number,
+"planned_min": number,
+"started_at": string,
+"task_id": string,
+"user_id": string
+            }
+                          SetofOptions: {
+        from: "*"
+        to: "focus_sessions"
+        isOneToOne: true
+        isSetofReturn: false
+      } },
+"resume_focus_session":
+{ Args: { "p_session_id": string }; Returns: {
+              "ended_at": string | null,
+"id": string,
+"outcome": Database["public"]['Enums']["focus_outcome"] | null,
+"paused_at": string | null,
 "paused_ms": number,
 "planned_min": number,
 "started_at": string,
@@ -291,6 +331,7 @@ isOneToOne: false
               "ended_at": string | null,
 "id": string,
 "outcome": Database["public"]['Enums']["focus_outcome"] | null,
+"paused_at": string | null,
 "paused_ms": number,
 "planned_min": number,
 "started_at": string,

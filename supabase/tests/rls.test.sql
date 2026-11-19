@@ -2,7 +2,7 @@
 -- Run with: pnpm db:test
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(25);
+select plan(31);
 
 -- Two users, created the way Supabase Auth would (fires the signup trigger).
 insert into auth.users (id, email) values
@@ -27,6 +27,9 @@ insert into public.xp_transactions (user_id, amount, source_type, source_id, rea
 insert into public.daily_checkins (user_id, day, energy, focus, available_min, capacity_min, recommended_min) values
   ('00000000-0000-0000-0000-00000000000a', '2026-11-18', 3, 3, 240, 204, 163),
   ('00000000-0000-0000-0000-00000000000b', '2026-11-18', 4, 4, 120, 120, 96);
+
+insert into public.focus_sessions (id, user_id, task_id, planned_min) values
+  ('20000000-0000-0000-0000-00000000000b', '00000000-0000-0000-0000-00000000000b', '10000000-0000-0000-0000-00000000000b', 25);
 
 select throws_ok(
   $$ insert into public.xp_transactions (user_id, amount, source_type, source_id, reason, day) values
@@ -86,6 +89,30 @@ select is(
   (select (public.end_focus_session(id)).outcome from public.focus_sessions where ended_at is null),
   'abandoned'::public.focus_outcome,
   'ending a session right away is judged by the server clock (abandoned)');
+
+select lives_ok(
+  $$ select public.start_focus_session('10000000-0000-0000-0000-00000000000a', 25) $$,
+  'A starts another session after ending the first');
+
+select throws_ok(
+  $$ select public.start_focus_session('10000000-0000-0000-0000-00000000000a', 25) $$,
+  '23505', null, 'only one focus session can be open at a time');
+
+select lives_ok(
+  $$ select public.pause_focus_session(id) from public.focus_sessions where ended_at is null $$,
+  'A can pause their open session');
+
+select ok(
+  (select paused_at is not null from public.focus_sessions where ended_at is null),
+  'the pause start is recorded by the server');
+
+select is(
+  (select (public.end_focus_session(id)).paused_at from public.focus_sessions where ended_at is null),
+  null, 'ending a paused session folds the pause into paused_ms');
+
+select throws_ok(
+  $$ select public.pause_focus_session('20000000-0000-0000-0000-00000000000b') $$,
+  'P0002', null, 'A cannot pause B''s session');
 
 select lives_ok(
   $$ update public.companions set name = 'Ember' $$,

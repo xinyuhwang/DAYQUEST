@@ -306,6 +306,11 @@ You can re-check in at any point in the day (for example, exhausted after lunch)
 - Break reminders, with optional browser notifications.
 - **Integrity:** the timer runs in the browser. The server records `started_at` and `ended_at`, and focus XP is granted only when that span covers the session length.
 - **Interruptions:** pause is allowed (pause time is not counted). A session ended early earns partial XP if ≥ 50 % elapsed (§5.2).
+- **Pauses are server-measured too:** pause and resume are recorded with the database clock, so a reload keeps the pause and the browser never reports its own focused time.
+- **One session at a time:** only one open session per user, so sessions can't be stacked for XP. Starting another while one is running returns you to it.
+- **Time's up is checked by the server:** when the browser's countdown ends, the server confirms the time with its own clock before ending the session. A fast device clock just lines the countdown back up, without ending the session early or costing XP.
+- **Breaks:** 5 min after 25, 10 min after 50, and custom sessions get a fifth of their length (5–15 min). Every 4th completed session of the day earns a 15-min long break. Breaks are client-side and earn no XP.
+- **v1 ambient sounds** are generated in the browser (white noise, rain), so no audio files are needed. Café and other packs need recorded audio and arrive as unlockable variants.
 
 ### 8.2 Boss Battles 🟡 (Phase 3)
 

@@ -22,6 +22,7 @@ export function DayView({
   totalXp,
   checkin,
   todayXp,
+  focusSession,
 }: {
   day: MissionDay;
   dayLabel: string;
@@ -29,6 +30,8 @@ export function DayView({
   totalXp: number;
   checkin: LatestCheckin | null;
   todayXp: DayXp | null;
+  /** The running focus session, if any. */
+  focusSession: { taskTitle: string } | null;
 }) {
   // Checkbox taps update instantly; the server result replaces this on refresh.
   const [optimistic, setOptimisticDone] = useOptimistic(missions, (state, change: { id: string; done: boolean }) =>
@@ -115,6 +118,19 @@ export function DayView({
         />
       )}
 
+      {focusSession && (
+        <Link
+          href="/focus"
+          className="flex items-center justify-between gap-3 rounded-card border border-accent bg-accent-soft px-5 py-3 text-sm shadow-card hover:opacity-90"
+        >
+          <span className="min-w-0">
+            <span className="font-medium text-accent">Focus session running</span>
+            <span className="block truncate text-ink-muted">{focusSession.taskTitle}</span>
+          </span>
+          <span className="shrink-0 font-medium text-accent">Return to focus →</span>
+        </Link>
+      )}
+
       {day === "today" && (
         <CapacityCard
           checkin={checkin}
@@ -143,6 +159,7 @@ export function DayView({
                 mission={m}
                 day={day}
                 onToggle={day === "today" ? (done) => toggle(m.id, done) : undefined}
+                canFocus={day === "today" && !focusSession}
               />
             ))}
           </ul>

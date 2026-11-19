@@ -57,8 +57,9 @@ export async function getDayContext() {
   }
 
   const timezone = profile.timezone;
-  const today = dayKey(new Date(), timezone, profile.day_rollover_hour ?? DEFAULT_ROLLOVER_HOUR);
-  return { supabase, userId, timezone, today, tomorrow: addDays(today, 1) };
+  const rolloverHour = profile.day_rollover_hour ?? DEFAULT_ROLLOVER_HOUR;
+  const today = dayKey(new Date(), timezone, rolloverHour);
+  return { supabase, userId, timezone, rolloverHour, today, tomorrow: addDays(today, 1) };
 }
 
 /**

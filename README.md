@@ -33,6 +33,7 @@ Local Supabase runs entirely in Docker: API at `http://127.0.0.1:54321`, Studio 
 | `pnpm db:reset` | Recreate the local database from `supabase/migrations` (**wipes local data**) |
 | `pnpm db:test` | Run database tests (RLS and XP integrity, in `supabase/tests`) |
 | `pnpm db:types` | Regenerate TypeScript types from the local schema |
+| `pnpm dev:code <email>` | Print the latest local sign-in code for that email (reads the test inbox) |
 
 ---
 

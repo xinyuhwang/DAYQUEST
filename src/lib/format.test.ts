@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { formatMinutes } from "./format";
+import { formatDayLabel, formatMinutes } from "./format";
+
+describe("formatDayLabel", () => {
+  it("formats a day key without shifting the date", () => {
+    expect(formatDayLabel("2026-11-18")).toBe("Wednesday, November 18");
+    expect(formatDayLabel("2027-01-01")).toBe("Friday, January 1");
+  });
+});
 
 describe("formatMinutes", () => {
   it("formats hours and minutes", () => {

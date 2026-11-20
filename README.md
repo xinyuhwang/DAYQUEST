@@ -10,13 +10,17 @@ DAYQUEST turns your daily to-do list into a quest. You plan the day's **missions
 
 ## Getting started
 
-Requires **Node 22.12+** (the repo pins Node 24 in `.nvmrc`) and **pnpm**.
+Requires **Node 22.12+** (the repo pins Node 24 in `.nvmrc`), **pnpm**, and **Docker Desktop** (running) for the local database.
 
 ```bash
-nvm use          # picks up .nvmrc
+nvm use                      # picks up .nvmrc
 pnpm install
-pnpm dev         # http://localhost:3000
+pnpm db:start                # local Supabase in Docker (first run downloads ~2 GB of images)
+cp .env.example .env.local   # then paste the keys printed by `pnpm supabase status`
+pnpm dev                     # http://localhost:3000
 ```
+
+Local Supabase runs entirely in Docker: API at `http://127.0.0.1:54321`, Studio (table browser) at `http://127.0.0.1:54323`, and a test inbox for sign-in emails at `http://127.0.0.1:54324`. Realtime, storage, analytics and edge functions are turned off in [supabase/config.toml](supabase/config.toml) to save resources.
 
 | Command | What it does |
 | --- | --- |
@@ -25,6 +29,11 @@ pnpm dev         # http://localhost:3000
 | `pnpm typecheck` | Generate Next.js route types, then type-check |
 | `pnpm lint` | ESLint |
 | `pnpm build` | Production build |
+| `pnpm db:start` / `pnpm db:stop` | Start / stop local Supabase (data is kept between runs) |
+| `pnpm db:reset` | Recreate the local database from `supabase/migrations` (**wipes local data**) |
+| `pnpm db:test` | Run database tests (RLS and XP integrity, in `supabase/tests`) |
+| `pnpm db:types` | Regenerate TypeScript types from the local schema |
+| `pnpm dev:code <email>` | Print the latest local sign-in code for that email (reads the test inbox) |
 
 ---
 

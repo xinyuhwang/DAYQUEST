@@ -106,6 +106,12 @@ Five main areas:
 `planned → active → done`, plus `partial`, `carried_over`, `dropped`.
 
 - **Carry-over** happens in the evening reflection. The user chooses which unfinished missions move to tomorrow. Nothing piles up silently.
+  - ✅ A carried mission is **copied** to the next day (linked by `carried_from`, shown with a "Carried over" chip). The original stays on its day as `carried_over`, hidden from the list but kept for history.
+  - ✅ Optional missions start unticked; the rest start ticked. Unticked missions stay on their day.
+  - ✅ Carrying away an unfinished Critical mission doesn't earn "all critical done": it still counts as planned on its day.
+  - ✅ The reflection and the carry-over are written in one server-side transaction, once per day, so a double submit can't carry twice.
+  - ✅ **Missed evening:** if a day ended without a reflection and left unfinished missions, the next day's Today page shows "Yesterday's loose ends" to carry them into today. Doing that still earns that day's +10.
+  - ✅ The reflection is open from 20:00 until the rollover hour; the server enforces the window. Notes are optional.
 - **Un-checking** a completed mission reverses its XP with a compensating transaction (§5.5).
 
 ---
@@ -285,7 +291,8 @@ The rest is light work. The buffer is the 20 % already removed in §7.2.
 You can re-check in at any point in the day (for example, exhausted after lunch).
 
 - Remaining capacity is recalculated from the remaining time and the new E and F values.
-- The daily XP target is lowered to match, and never raised mid-day.
+- The daily XP target is lowered to match, and never raised mid-day: new target = min(current target, XP already earned toward the target + the target for the remaining recommended minutes).
+- Check-ins and daily plans are written by the server, which computes capacity and the target with the engine. Users can read them but not write or edit them, because the target unlocks the +20 bonus (principle 4).
 - The coach offers to move Optional missions to tomorrow, framed as planning, not failure.
 - Each check-in is stored as a **new snapshot**; earlier ones are never overwritten.
 
@@ -305,6 +312,11 @@ You can re-check in at any point in the day (for example, exhausted after lunch)
 - Break reminders, with optional browser notifications.
 - **Integrity:** the timer runs in the browser. The server records `started_at` and `ended_at`, and focus XP is granted only when that span covers the session length.
 - **Interruptions:** pause is allowed (pause time is not counted). A session ended early earns partial XP if ≥ 50 % elapsed (§5.2).
+- **Pauses are server-measured too:** pause and resume are recorded with the database clock, so a reload keeps the pause and the browser never reports its own focused time.
+- **One session at a time:** only one open session per user, so sessions can't be stacked for XP. Starting another while one is running returns you to it.
+- **Time's up is checked by the server:** when the browser's countdown ends, the server confirms the time with its own clock before ending the session. A fast device clock just lines the countdown back up, without ending the session early or costing XP.
+- **Breaks:** 5 min after 25, 10 min after 50, and custom sessions get a fifth of their length (5–15 min). Every 4th completed session of the day earns a 15-min long break. Breaks are client-side and earn no XP.
+- **v1 ambient sounds** are generated in the browser (white noise, rain), so no audio files are needed. Café and other packs need recorded audio and arrive as unlockable variants.
 
 ### 8.2 Boss Battles 🟡 (Phase 3)
 
@@ -588,7 +600,7 @@ Initial entities. Fields are indicative, not final.
 | `daily_checkins` | id, user_id, date, created_at, energy, focus, mood (nullable), available_min, capacity_min, recommended_min | **Many per day**: snapshots, never overwritten |
 | `daily_plans` | id, user_id, date, checkin_id, xp_target, ordered_task_ids | Points to the check-in it was built from |
 | `focus_sessions` | id, user_id, task_id (required), preset, planned_min, started_at, ended_at, paused_ms, outcome | Server timestamps validate XP |
-| `xp_transactions` | id, user_id, amount, source_type, source_id, reason, created_at | **Unique (user_id, source_type, source_id, reason)**; reversals are negative rows |
+| `xp_transactions` | id, user_id, amount, source_type, source_id, reason, day, created_at | **Unique (user_id, source_type, source_id, reason)**; reversals are negative rows on the same `day` as the award they cancel. Reasons are numbered streams: `task_completed#1`, `task_completed#1:reversal`, `task_completed#2`, `bonus:all_critical#1` |
 | `reflections` | id, user_id, date, notes, carried_task_ids | Source of the +10 bonus |
 | `achievements` | id, code, title, criteria | Static catalog |
 | `user_achievements` | user_id, achievement_id, earned_at | |

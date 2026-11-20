@@ -26,3 +26,30 @@ export function dayKey(
     day: "2-digit",
   }).format(shifted);
 }
+
+/** Calendar arithmetic on "YYYY-MM-DD" keys (time-zone independent). */
+export function addDays(key: string, days: number): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(key);
+  if (!m) throw new RangeError(`invalid day key: ${key}`);
+  const date = new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]) + days));
+  return date.toISOString().slice(0, 10);
+}
+
+/** The user's local hour (0–23) at an instant. */
+function localHour(instant: Date, timeZone: string): number {
+  const hour = new Intl.DateTimeFormat("en-US", { timeZone, hour: "numeric", hourCycle: "h23" }).format(instant);
+  return Number(hour);
+}
+
+/**
+ * Whether the evening reflection for the current day is open: from
+ * REFLECTION_PROMPT_HOUR until the rollover hour ends the day (§3).
+ */
+export function reflectionOpen(
+  instant: Date,
+  timeZone: string,
+  rolloverHour: number = DEFAULT_ROLLOVER_HOUR,
+): boolean {
+  const hour = localHour(instant, timeZone);
+  return hour >= REFLECTION_PROMPT_HOUR || hour < rolloverHour;
+}

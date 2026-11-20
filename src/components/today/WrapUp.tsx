@@ -88,6 +88,8 @@ function WrapUpForm({ wrapUp, onCancel }: { wrapUp: WrapUp; onCancel: () => void
   const [carry, setCarry] = useState<Set<string>>(
     () => new Set(wrapUp.unfinished.filter((m) => m.importance !== "optional").map((m) => m.id)),
   );
+  // Controlled, so the notes survive a failed save (React resets uncontrolled fields after a form action).
+  const [notes, setNotes] = useState("");
   const [state, formAction, pending] = useActionState<WrapUpFormState, FormData>(wrapUpDay, { savedCount: 0 });
 
   const carriedMinutes = wrapUp.unfinished.filter((m) => carry.has(m.id)).reduce((s, m) => s + m.estimatedMinutes, 0);
@@ -155,6 +157,8 @@ function WrapUpForm({ wrapUp, onCancel }: { wrapUp: WrapUp; onCancel: () => void
           name="notes"
           rows={3}
           maxLength={NOTES_MAX}
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
           placeholder="What went well, what got in the way…"
           className="w-full rounded-card border border-line bg-surface px-3 py-2 text-base text-ink placeholder:text-ink-muted"
         />

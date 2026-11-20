@@ -1,4 +1,5 @@
 import "server-only";
+import { addDays, dayKey } from "@/engine";
 import type { DayContext } from "@/lib/missions/server";
 
 export interface OpenSession {
@@ -46,12 +47,36 @@ export async function getOpenSession(ctx: DayContext): Promise<OpenSession | nul
   return { ...toClock(data), taskTitle: data.tasks?.title ?? "Mission", serverNow: Date.now() };
 }
 
+export interface EndedSession {
+  plannedMinutes: number;
+  outcome: "completed" | "ended_early" | "abandoned";
+  focusedMs: number;
+}
+
+/**
+ * Sessions that ended, belonging to `day` by when they *started*: the same rule
+ * that dates their focus XP. A mission moved to another day afterwards doesn't
+ * take its sessions with it.
+ */
+export async function endedSessionsOn(ctx: DayContext, day: string): Promise<EndedSession[]> {
+  // Any time zone's day falls inside this UTC window; dayKey picks the exact ones.
+  const { data, error } = await ctx.supabase
+    .from("focus_sessions")
+    .select("planned_min, started_at, ended_at, paused_ms, outcome")
+    .not("ended_at", "is", null)
+    .gte("started_at", `${addDays(day, -1)}T00:00:00Z`)
+    .lt("started_at", `${addDays(day, 2)}T00:00:00Z`);
+  if (error) throw new Error(`Couldn't load focus sessions: ${error.message}`);
+  return data
+    .filter((s) => dayKey(new Date(s.started_at), ctx.timezone, ctx.rolloverHour) === day)
+    .map((s) => ({
+      plannedMinutes: s.planned_min,
+      outcome: s.outcome!,
+      focusedMs: Math.max(0, Date.parse(s.ended_at!) - Date.parse(s.started_at) - Number(s.paused_ms)),
+    }));
+}
+
 /** Completed sessions today, for the long break after every 4th. */
 export async function completedSessionsToday(ctx: DayContext): Promise<number> {
-  const { count } = await ctx.supabase
-    .from("focus_sessions")
-    .select("id, tasks!inner(planned_date)", { count: "exact", head: true })
-    .eq("outcome", "completed")
-    .eq("tasks.planned_date", ctx.today);
-  return count ?? 0;
+  return (await endedSessionsOn(ctx, ctx.today)).filter((s) => s.outcome === "completed").length;
 }

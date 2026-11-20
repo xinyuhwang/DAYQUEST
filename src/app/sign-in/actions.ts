@@ -1,6 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { isValidTimeZone, normalizeCode, normalizeEmail, safeNextPath } from "@/lib/auth";
 
@@ -53,7 +54,8 @@ export async function verifyCode(_prev: SignInState, formData: FormData): Promis
   // the browser on first sign-in; later changes happen in Settings.
   const tz = formData.get("timezone");
   if (isValidTimeZone(tz)) {
-    const { error: tzError } = await supabase
+    // Day settings are server-owned; this only fills in the signup default.
+    const { error: tzError } = await createAdminClient()
       .from("profiles")
       .update({ timezone: tz })
       .eq("id", data.user.id)

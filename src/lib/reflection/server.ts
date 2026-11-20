@@ -1,5 +1,6 @@
 import "server-only";
 import { addDays, reflectionOpen } from "@/engine";
+import { endedSessionsOn } from "@/lib/focus/server";
 import { formatDayLabel } from "@/lib/format";
 import { listMissions, type DayContext, type Mission } from "@/lib/missions/server";
 import { getDayXp } from "@/lib/xp/sync";
@@ -66,20 +67,13 @@ async function loadWrapUp(
   nextDay: string,
   reflection: Reflection | null,
 ): Promise<WrapUp> {
-  const [missions, next, xp, { data: sessions }] = await Promise.all([
+  const [missions, next, xp, sessions] = await Promise.all([
     listMissions(ctx, day),
     listMissions(ctx, nextDay),
     getDayXp(ctx, day),
-    ctx.supabase
-      .from("focus_sessions")
-      .select("started_at, ended_at, paused_ms, outcome, tasks!inner(planned_date)")
-      .not("ended_at", "is", null)
-      .eq("tasks.planned_date", day),
+    endedSessionsOn(ctx, day),
   ]);
-  const focusMs = (sessions ?? []).reduce(
-    (sum, s) => sum + Math.max(0, Date.parse(s.ended_at!) - Date.parse(s.started_at) - Number(s.paused_ms)),
-    0,
-  );
+  const focusMs = sessions.reduce((sum, s) => sum + s.focusedMs, 0);
   return {
     day: kind,
     dayLabel: formatDayLabel(day),
@@ -88,7 +82,7 @@ async function loadWrapUp(
       total: missions.length,
       xp: xp.total,
       focusMinutes: Math.floor(focusMs / 60_000),
-      focusSessions: (sessions ?? []).filter((s) => s.outcome === "completed").length,
+      focusSessions: sessions.filter((s) => s.outcome === "completed").length,
     },
     unfinished: missions.filter((m) => m.status !== "done" && m.status !== "dropped"),
     nextDayMinutes: next.reduce((sum, m) => sum + m.estimatedMinutes, 0),

@@ -2,7 +2,7 @@
 -- Run with: pnpm db:test
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(40);
+select plan(53);
 
 -- Two users, created the way Supabase Auth would (fires the signup trigger).
 insert into auth.users (id, email) values
@@ -53,7 +53,37 @@ select throws_ok(
   '42501', null, 'A cannot create a task owned by B');
 
 update public.tasks set title = 'hijacked' where id = '10000000-0000-0000-0000-00000000000b';
-delete from public.tasks where id = '10000000-0000-0000-0000-00000000000b';
+
+-- Status, day and deletion have XP consequences, so only server code changes them.
+select throws_ok(
+  $$ delete from public.tasks where id = '10000000-0000-0000-0000-00000000000b' $$,
+  '42501', null, 'A cannot delete tasks directly (B''s or their own)');
+select throws_ok(
+  $$ update public.tasks set status = 'planned' where id = '10000000-0000-0000-0000-00000000000a' $$,
+  '42501', null, 'A cannot change a mission''s status directly (would skip the XP reversal)');
+select throws_ok(
+  $$ update public.tasks set planned_date = '2026-11-19' where id = '10000000-0000-0000-0000-00000000000a' $$,
+  '42501', null, 'A cannot move a mission to another day directly');
+select throws_ok(
+  $$ insert into public.tasks (title, est_minutes, planned_date, status) values ('pre-done', 15, '2026-11-18', 'done') $$,
+  '42501', null, 'A cannot create a mission that is already done');
+select lives_ok(
+  $$ update public.tasks set est_minutes = 30, category = 'research' where id = '10000000-0000-0000-0000-00000000000a' $$,
+  'A can still edit a mission''s content');
+
+-- Day settings decide which day XP lands on: server-owned too.
+select throws_ok(
+  $$ update public.profiles set timezone = 'Asia/Tokyo' $$,
+  '42501', null, 'A cannot change their time zone directly');
+select throws_ok(
+  $$ update public.profiles set day_rollover_hour = 6 $$,
+  '42501', null, 'A cannot change their rollover hour directly');
+select lives_ok(
+  $$ update public.profiles set theme_variants = '{"accent": "indigo"}' $$,
+  'A can still update their theme choices');
+select throws_ok(
+  $$ select public.carry_tasks('00000000-0000-0000-0000-00000000000a', '2026-11-18', '2026-11-19', '{}') $$,
+  '42501', null, 'A cannot call carry_tasks (server only)');
 
 select throws_ok(
   $$ insert into public.tasks (title, est_minutes, planned_date, parent_id)
@@ -181,8 +211,21 @@ select throws_ok(
        array['10000000-0000-0000-0000-00000000000a']::uuid[]) $$,
   '23505', null, 'a day can be wrapped up only once');
 reset role;
-select is((select count(*) from public.tasks where carried_from is not null), 1::bigint,
+select is((select count(*) from public.tasks where user_id = '00000000-0000-0000-0000-00000000000a' and carried_from is not null), 1::bigint,
   'a repeated wrap-up carries nothing twice');
+
+set local role service_role;
+select is(
+  public.uncarry_task('00000000-0000-0000-0000-00000000000a',
+    (select id from public.tasks where carried_from = '10000000-0000-0000-0000-00000000000a'), '2026-11-18'),
+  true, 'moving a carried copy back to its day undoes the carry');
+select is(
+  public.uncarry_task('00000000-0000-0000-0000-00000000000a', '10000000-0000-0000-0000-00000000000a', '2026-11-18'),
+  false, 'uncarry_task ignores a mission that isn''t a carried copy');
+reset role;
+select is((select status::text from public.tasks where id = '10000000-0000-0000-0000-00000000000a'), 'planned',
+  'the original is planned again');
+select is((select count(*) from public.tasks where user_id = '00000000-0000-0000-0000-00000000000a' and carried_from is not null), 0::bigint, 'the copy is gone');
 
 -- ---------------------------------------------------------------- anonymous
 set local role anon;

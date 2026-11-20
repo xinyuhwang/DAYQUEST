@@ -2,6 +2,7 @@
 
 import { refresh } from "next/cache";
 import { setTaskDone } from "@/lib/missions/complete";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { getDayContext, type DayContext } from "@/lib/missions/server";
 import { parseMissionForm, type FieldErrors, type MissionDay } from "@/lib/missions/validate";
 import { syncDailyBonuses, syncTaskXp } from "@/lib/xp/sync";
@@ -91,24 +92,67 @@ export async function setMissionDone(id: string, done: boolean): Promise<{ ok: b
   return { ok };
 }
 
-export async function moveMission(id: string, to: MissionDay): Promise<{ ok: boolean }> {
+/** True while a focus session is running on this mission. */
+async function isBeingFocused(ctx: DayContext, id: string) {
+  const { data } = await ctx.supabase.from("focus_sessions").select("id").eq("task_id", id).is("ended_at", null).maybeSingle();
+  return Boolean(data);
+}
+
+const FOCUSING = "Finish the focus session on this mission first.";
+
+/**
+ * Moves an unfinished mission between Today and Tomorrow. Today → tomorrow is a
+ * carry-over (§4): the original stays on today as carried_over, so moving an
+ * unfinished Critical mission away can't earn "all critical done".
+ */
+export async function moveMission(id: string, to: MissionDay): Promise<{ ok: boolean; error?: string }> {
   if (!isUuid(id) || (to !== "today" && to !== "tomorrow")) return { ok: false };
   const ctx = await getDayContext();
-  const { error } = await ctx.supabase
-    .from("tasks")
-    .update({ planned_date: to === "today" ? ctx.today : ctx.tomorrow, status: "planned", completed_at: null })
-    .eq("id", id)
-    .neq("status", "done"); // finished missions stay where they were finished
-  if (!error) await resyncXp(ctx);
+  if (await isBeingFocused(ctx, id)) return { ok: false, error: FOCUSING };
+
+  let ok: boolean;
+  if (to === "tomorrow") {
+    const { data, error } = await createAdminClient().rpc("carry_tasks", {
+      p_user: ctx.userId,
+      p_day: ctx.today,
+      p_to: ctx.tomorrow,
+      p_ids: [id],
+    });
+    ok = !error && (data ?? []).length === 1;
+  } else {
+    // A mission carried from today and moved back: undo the carry instead.
+    const { data: undone } = await createAdminClient().rpc("uncarry_task", {
+      p_user: ctx.userId,
+      p_copy: id,
+      p_day: ctx.today,
+    });
+    if (undone) {
+      await resyncXp(ctx);
+      refresh();
+      return { ok: true };
+    }
+    const { data, error } = await createAdminClient()
+      .from("tasks")
+      .update({ planned_date: ctx.today, status: "planned", completed_at: null })
+      .eq("id", id)
+      .eq("user_id", ctx.userId)
+      .eq("planned_date", ctx.tomorrow)
+      .neq("status", "done")
+      .select("id");
+    ok = !error && data.length === 1;
+  }
+  if (ok) await resyncXp(ctx);
   refresh();
-  return { ok: !error };
+  return ok ? { ok } : { ok, error: "Couldn't move the mission. Please try again." };
 }
 
 /** Deleting a finished mission takes its XP back, so delete-and-redo can't farm XP. */
-export async function deleteMission(id: string): Promise<{ ok: boolean }> {
+export async function deleteMission(id: string): Promise<{ ok: boolean; error?: string }> {
   if (!isUuid(id)) return { ok: false };
   const ctx = await getDayContext();
-  const { error } = await ctx.supabase.from("tasks").delete().eq("id", id);
+  // Deleting would cascade to the running session and lose its focus time.
+  if (await isBeingFocused(ctx, id)) return { ok: false, error: FOCUSING };
+  const { error } = await createAdminClient().from("tasks").delete().eq("id", id).eq("user_id", ctx.userId);
   if (!error) await resyncXp(ctx, id);
   refresh();
   return { ok: !error };

@@ -5,6 +5,7 @@ import {
   dayKey,
   focusSessionXp,
   DAILY_BONUS_XP,
+  FOCUS_MIN_SESSION_MIN,
   planLedgerChange,
   qualifyingDailyBonuses,
   sumLedger,
@@ -15,6 +16,7 @@ import {
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { Database } from "@/lib/supabase/database.types";
 import type { DayContext } from "@/lib/missions/server";
+import { endedSessionsOn } from "@/lib/focus/server";
 
 type XpSource = Database["public"]["Enums"]["xp_source"];
 
@@ -93,27 +95,33 @@ async function syncTaskXpOnce(ctx: DayContext, taskId: string) {
   await append(ctx, "task", taskId, changes);
 }
 
+/** Why a session earned what it did. */
+export type FocusAwardReason = "awarded" | "capped" | "none";
+
 /**
  * Awards XP for an ended focus session (§5.2): measured focused time decides
  * the amount, and the day's 120 XP focus cap trims it. Sessions never change
  * after ending, so this writes at most once.
  */
-export async function syncFocusXp(ctx: DayContext, sessionId: string): Promise<{ xp: number; day: string }> {
+export async function syncFocusXp(
+  ctx: DayContext,
+  sessionId: string,
+): Promise<{ xp: number; day: string; reason: FocusAwardReason }> {
   const { data: s } = await ctx.supabase
     .from("focus_sessions")
     .select("task_id, planned_min, started_at, ended_at, paused_ms")
     .eq("id", sessionId)
     .not("ended_at", "is", null)
     .maybeSingle();
-  if (!s?.ended_at) return { xp: 0, day: ctx.today };
+  if (!s?.ended_at) return { xp: 0, day: ctx.today, reason: "none" };
 
   const day = dayKey(new Date(s.started_at), ctx.timezone, ctx.rolloverHour);
-  const entries = await ledgerFor(ctx, "focus_session", sessionId);
-  const already = sumLedger(entries);
-  if (entries.length > 0) return { xp: already, day };
-
   const focusedMinutes = (Date.parse(s.ended_at) - Date.parse(s.started_at) - Number(s.paused_ms)) / 60_000;
   const award = focusSessionXp({ taskId: s.task_id, plannedMinutes: s.planned_min, focusedMinutes });
+
+  const entries = await ledgerFor(ctx, "focus_session", sessionId);
+  if (entries.length > 0) return { xp: sumLedger(entries), day, reason: "awarded" };
+  if (award === 0) return { xp: 0, day, reason: "none" };
 
   const { data: dayFocus, error } = await createAdminClient()
     .from("xp_transactions")
@@ -126,7 +134,36 @@ export async function syncFocusXp(ctx: DayContext, sessionId: string): Promise<{
 
   const amount = applyFocusCap(award, earnedToday);
   await append(ctx, "focus_session", sessionId, planLedgerChange([], FOCUS_BASE, amount > 0, amount, day));
-  return { xp: amount, day };
+  return { xp: amount, day, reason: amount > 0 ? "awarded" : "capped" };
+}
+
+/**
+ * Awards any recently ended sessions whose XP write failed (e.g. a dropped
+ * connection while ending). Safe to call often: sessions that already have
+ * ledger entries, or that earn nothing, are left alone.
+ */
+export async function repairFocusXp(ctx: DayContext) {
+  const { data: recent } = await ctx.supabase
+    .from("focus_sessions")
+    .select("id")
+    .not("ended_at", "is", null)
+    .gte("ended_at", new Date(Date.now() - 48 * 3600e3).toISOString())
+    .order("ended_at", { ascending: true });
+  if (!recent?.length) return;
+  const { data: awarded } = await createAdminClient()
+    .from("xp_transactions")
+    .select("source_id")
+    .eq("user_id", ctx.userId)
+    .eq("source_type", "focus_session")
+    .in("source_id", recent.map((r) => r.id));
+  const done = new Set((awarded ?? []).map((a) => a.source_id));
+  const days = new Set<string>();
+  for (const { id } of recent) {
+    if (done.has(id)) continue;
+    const r = await syncFocusXp(ctx, id);
+    if (r.xp > 0) days.add(r.day);
+  }
+  for (const day of days) await syncDailyBonuses(ctx, day);
 }
 
 export interface DayXp {
@@ -182,24 +219,22 @@ export async function dayTarget(ctx: DayContext, day: string): Promise<number> {
  * for right now (§5.3). Call after anything that could change qualification.
  */
 export async function syncDailyBonuses(ctx: DayContext, day: string = ctx.today) {
-  const [{ data: tasks }, { count: sessions }, { data: reflection }, xp] = await Promise.all([
+  const [{ data: tasks }, sessions, { data: reflection }, xp] = await Promise.all([
     ctx.supabase.from("tasks").select("importance, status").eq("planned_date", day).is("parent_id", null),
-    ctx.supabase
-      .from("focus_sessions")
-      .select("id, tasks!inner(planned_date)", { count: "exact", head: true })
-      .eq("outcome", "completed")
-      .eq("tasks.planned_date", day),
+    endedSessionsOn(ctx, day),
     ctx.supabase.from("reflections").select("id").eq("day", day).maybeSingle(),
     getDayXp(ctx, day),
   ]);
 
+  // Carried-away missions (status carried_over) still count on their day (§4).
   const critical = (tasks ?? []).filter((t) => t.importance === "critical");
   const qualifying = qualifyingDailyBonuses({
     criticalPlanned: critical.length,
     criticalCompleted: critical.filter((t) => t.status === "done").length,
     earnedXp: xp.earnedTowardTarget,
     xpTarget: xp.target,
-    completedFocusSessions: sessions ?? 0,
+    // Sessions too short to earn focus XP (§5.2) don't count toward the bonus either.
+    completedFocusSessions: sessions.filter((s) => s.outcome === "completed" && s.plannedMinutes >= FOCUS_MIN_SESSION_MIN).length,
     reflectionDone: Boolean(reflection),
   });
 

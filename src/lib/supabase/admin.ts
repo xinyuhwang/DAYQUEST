@@ -5,8 +5,9 @@ import { supabasePublicEnv } from "./env";
 
 /**
  * Privileged client that bypasses RLS. Use it ONLY in server code that writes
- * the game economy (xp_transactions, user_unlocks, user_achievements), after
- * the engine has computed the award from data owned by the verified user.
+ * the game economy (xp_transactions, user_unlocks, user_achievements) or the
+ * state it depends on (check-ins, reflections, mission status, day settings),
+ * always scoped to the verified user's id.
  * Never import this from a Client Component; `server-only` enforces that.
  */
 export function createAdminClient() {

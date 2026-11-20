@@ -42,3 +42,16 @@ export function normalizeCode(raw: unknown): string | null {
   const code = raw.replace(/[\s-]/g, "");
   return /^\d{6}$/.test(code) ? code : null;
 }
+
+/**
+ * Auth cookie settings for every Supabase server client. Sessions are only
+ * read on the server, so page scripts never need them (httpOnly), and in
+ * production they only travel over HTTPS (secure). Some browsers drop secure
+ * cookies on http://localhost, so dev leaves that off.
+ */
+export const SESSION_COOKIE_OPTIONS = {
+  path: "/",
+  sameSite: "lax",
+  httpOnly: true,
+  secure: process.env.NODE_ENV === "production",
+} as const;

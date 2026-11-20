@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
-import { SIGNED_OUT_PARAM, SIGN_IN_PATH } from "@/lib/auth";
+import { SESSION_COOKIE_OPTIONS, SIGNED_OUT_PARAM, SIGN_IN_PATH } from "@/lib/auth";
 
 /**
  * Runs before every page request:
@@ -23,6 +23,7 @@ export async function proxy(request: NextRequest) {
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
     {
+      cookieOptions: SESSION_COOKIE_OPTIONS,
       cookies: {
         getAll() {
           return request.cookies.getAll();

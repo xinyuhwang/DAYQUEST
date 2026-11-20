@@ -52,6 +52,11 @@ export interface CapacityResult {
   deepWorkMinutes: number;
   lightWorkMinutes: number;
   bufferMinutes: number;
+  /**
+   * Available time not counted as capacity because energy or focus is below
+   * par (available − capacity). With it, deep + light + buffer + set aside = available.
+   */
+  setAsideMinutes: number;
   /** Whole 25-minute sessions that fit in the recommended workload. */
   focusSessions: number;
 }
@@ -69,8 +74,17 @@ export function calculateCapacity({ availableMinutes, energy, focus }: CapacityI
     deepWorkMinutes,
     lightWorkMinutes: recommendedMinutes - deepWorkMinutes,
     bufferMinutes: capacityMinutes - recommendedMinutes,
+    setAsideMinutes: t - capacityMinutes,
     focusSessions: Math.floor(recommendedMinutes / SESSION_MINUTES),
   };
+}
+
+/** The ratings that lower capacity below the time available (multiplier under 1). */
+export function capacityLimiters(energy: Rating, focus: Rating): ("energy" | "focus")[] {
+  const limits: ("energy" | "focus")[] = [];
+  if (ENERGY_MULTIPLIER[energy] < 1) limits.push("energy");
+  if (FOCUS_MULTIPLIER[focus] < 1) limits.push("focus");
+  return limits;
 }
 
 export interface LoadCheck {

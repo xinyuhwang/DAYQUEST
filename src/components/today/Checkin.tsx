@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useId, useState } from "react";
-import { calculateCapacity, checkLoad, type Mood, type Rating } from "@/engine";
+import { calculateCapacity, capacityLimiters, checkLoad, type Mood, type Rating } from "@/engine";
 import { submitCheckin, type CheckinFormState } from "@/app/actions/checkin";
 import { Card, Chip, SectionLabel } from "@/components/ui";
 import { formatMinutes } from "@/lib/format";
@@ -63,11 +63,13 @@ export function CapacityCard({
     focus: checkin.focus,
   });
   const load = checkLoad(plannedMinutes, checkin.recommendedMinutes);
-  const total = Math.max(1, report.capacityMinutes);
-  const parts = [
+  // The bar spans all the time the user gave, so the parts add up to it.
+  const total = Math.max(1, checkin.availableMinutes);
+  const parts: { label: string; minutes: number; className: string; style?: React.CSSProperties }[] = [
     { label: "Deep work", minutes: report.deepWorkMinutes, className: "bg-accent" },
     { label: "Light work", minutes: report.lightWorkMinutes, className: "bg-xp" },
     { label: "Buffer", minutes: report.bufferMinutes, className: "bg-line" },
+    ...(report.setAsideMinutes > 0 ? [{ label: "Set aside", minutes: report.setAsideMinutes, className: "", style: HATCH }] : []),
   ];
 
   return (
@@ -89,20 +91,26 @@ export function CapacityCard({
       <div className="flex flex-col gap-2">
         <div className="flex h-2.5 overflow-hidden rounded-full bg-surface-2" aria-hidden>
           {parts.map((p) => (
-            <div key={p.label} className={p.className} style={{ width: `${(p.minutes / total) * 100}%` }} />
+            <div key={p.label} className={p.className} style={{ ...p.style, width: `${(p.minutes / total) * 100}%` }} />
           ))}
         </div>
-        <dl className="grid grid-cols-3 gap-2 text-sm">
+        <dl className={`grid gap-2 text-sm ${parts.length > 3 ? "grid-cols-2 sm:grid-cols-4" : "grid-cols-3"}`}>
           {parts.map((p) => (
             <div key={p.label} className="flex flex-col">
               <dt className="flex items-center gap-1.5 text-xs text-ink-muted">
-                <span className={`size-2 rounded-full ${p.className}`} aria-hidden />
+                <span className={`size-2 rounded-full ${p.className}`} style={p.style} aria-hidden />
                 {p.label}
               </dt>
               <dd className="font-medium tabular-nums">{formatMinutes(p.minutes)}</dd>
             </div>
           ))}
         </dl>
+        {report.setAsideMinutes > 0 && (
+          <p className="text-xs text-ink-muted">
+            {formatMinutes(report.setAsideMinutes)} of your {formatMinutes(checkin.availableMinutes)} is set aside because{" "}
+            {setAsideReason(checkin.energy, checkin.focus)}. That&apos;s room to recover, not time lost.
+          </p>
+        )}
       </div>
 
       {load.overloaded && (
@@ -237,9 +245,19 @@ function CheckinForm({
       <p className="rounded-card bg-surface-2 px-4 py-3 text-sm text-ink-muted" aria-live="polite">
         {preview ? (
           <>
-            That&apos;s about <span className="font-medium text-ink">{formatMinutes(preview.recommendedMinutes)}</span> of
-            focused work ({preview.focusSessions} {preview.focusSessions === 1 ? "session" : "sessions"}), with{" "}
-            {formatMinutes(preview.bufferMinutes)} of buffer for the unexpected.
+            Of your {formatMinutes(minutes)}: about{" "}
+            <span className="font-medium text-ink">{formatMinutes(preview.recommendedMinutes)}</span> of focused work (
+            {preview.focusSessions} {preview.focusSessions === 1 ? "session" : "sessions"})
+            {preview.setAsideMinutes > 0 ? ", " : " and "}
+            <span className="font-medium text-ink">{formatMinutes(preview.bufferMinutes)}</span> of buffer for the
+            unexpected
+            {preview.setAsideMinutes > 0 && energy && focus && (
+              <>
+                , and <span className="font-medium text-ink">{formatMinutes(preview.setAsideMinutes)}</span> set aside
+                because {setAsideReason(energy, focus)}
+              </>
+            )}
+            .
           </>
         ) : (
           "Pick your energy and focus to see a realistic workload."
@@ -356,4 +374,17 @@ function FieldError({ children }: { children: React.ReactNode }) {
       {children}
     </p>
   );
+}
+
+/** Diagonal stripes for "set aside": time that exists but isn't planned. */
+const HATCH: React.CSSProperties = {
+  backgroundImage: "repeating-linear-gradient(135deg, var(--color-line) 0 2px, transparent 2px 5px)",
+};
+
+/** "your energy is Okay", "your focus is Scattered", "your energy is Low and focus is Foggy". */
+function setAsideReason(energy: Rating, focus: Rating): string {
+  const why = capacityLimiters(energy, focus).map((k) =>
+    k === "energy" ? `energy is ${ENERGY_LABEL[energy]}` : `focus is ${FOCUS_LABEL[focus]}`,
+  );
+  return `your ${why.join(" and ")}`;
 }

@@ -284,6 +284,8 @@ $$Recommended = Capacity \times 0.8$$
 
 The rest is light work. The buffer is the 20 % already removed in §7.2.
 
+**Account for every minute** ✅: the report and the check-in preview split the time the user gave into four parts that add up to it: deep work, light work, buffer, and **set aside**, which is the time removed by below-par energy or focus (available − capacity). Set-aside time is shown as a hatched segment and named with its reason, e.g. "36m of your 4h is set aside because your energy is Okay." It's left out when energy and focus don't reduce capacity.
+
 **Overload warning:** if planned mission minutes exceed the recommended workload, the coach suggests what to move. It starts with Optional missions, then those that can move to tomorrow.
 
 ### 7.4 Dynamic capacity adjustment ✅

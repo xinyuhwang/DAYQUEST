@@ -42,7 +42,7 @@ async function Day({ searchParams }: { searchParams: PageProps<"/">["searchParam
       totalXp={totalXp}
       checkin={checkin}
       todayXp={todayXp}
-      focusSession={focusSession && { taskTitle: focusSession.taskTitle }}
+      focusSession={focusSession && { taskId: focusSession.taskId, taskTitle: focusSession.taskTitle }}
       wrapUp={wrapUp}
     />
   );

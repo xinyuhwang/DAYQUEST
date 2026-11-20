@@ -43,3 +43,6 @@ next-env.d.ts
 
 # Local build notes (not shared)
 docs/PHASE1.md
+
+# Browser test screenshots
+tests/e2e/screenshots/

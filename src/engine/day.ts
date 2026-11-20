@@ -17,14 +17,19 @@ export function dayKey(
   if (!Number.isInteger(rolloverHour) || rolloverHour < 0 || rolloverHour > MAX_ROLLOVER_HOUR) {
     throw new RangeError(`rolloverHour must be an integer from 0 to ${MAX_ROLLOVER_HOUR}`);
   }
-  const shifted = new Date(instant.getTime() - rolloverHour * 60 * 60 * 1000);
-  // en-CA formats dates as YYYY-MM-DD.
-  return new Intl.DateTimeFormat("en-CA", {
+  // Compare the local clock hour, not "instant minus N hours", so the boundary
+  // stays at rolloverHour:00 on daylight-saving days too.
+  const parts = new Intl.DateTimeFormat("en-CA", {
     timeZone,
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
-  }).format(shifted);
+    hour: "numeric",
+    hourCycle: "h23",
+  }).formatToParts(instant);
+  const get = (type: string) => parts.find((p) => p.type === type)!.value;
+  const local = `${get("year")}-${get("month")}-${get("day")}`;
+  return Number(get("hour")) < rolloverHour ? addDays(local, -1) : local;
 }
 
 /** Calendar arithmetic on "YYYY-MM-DD" keys (time-zone independent). */

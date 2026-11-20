@@ -28,10 +28,30 @@ function subscribe(listener: () => void) {
   };
 }
 
+/**
+ * How far the device clock is *behind* the server, measured once per page
+ * load against the time the server rendered it. A behind clock would show
+ * extra time and finish late, so it's corrected here. A clock that's ahead is
+ * left alone: the server catches that when the session ends (notYetMs).
+ * Latency only makes the device look ahead, so it's never over-corrected.
+ */
+const behindBy = new Map<number, number>();
+const MIN_DRIFT_MS = 2000;
+function driftFor(serverNow: number): number {
+  let d = behindBy.get(serverNow);
+  if (d === undefined) {
+    const gap = serverNow - Date.now();
+    d = gap > MIN_DRIFT_MS ? gap : 0;
+    behindBy.set(serverNow, d);
+  }
+  return d;
+}
+
+/** The current time in ms, lined up with the server for a slow device clock. */
 export function useClock(serverNow: number): number {
   return useSyncExternalStore(
     subscribe,
-    () => now || Date.now(),
+    () => (now || Date.now()) + driftFor(serverNow),
     () => serverNow,
   );
 }

@@ -12,10 +12,13 @@ import type { LatestCheckin } from "@/lib/missions/server";
 export function CapacityCard({
   checkin,
   plannedMinutes,
+  remainingMinutes,
   optionalOpen,
 }: {
   checkin: LatestCheckin | null;
   plannedMinutes: number;
+  /** Minutes of missions not done yet: what the overload check compares, since a re-check-in sizes only the time left. */
+  remainingMinutes: number;
   /** Optional missions not done yet: the first ones to move when overloaded. */
   optionalOpen: number;
 }) {
@@ -62,7 +65,7 @@ export function CapacityCard({
     energy: checkin.energy,
     focus: checkin.focus,
   });
-  const load = checkLoad(plannedMinutes, checkin.recommendedMinutes);
+  const load = checkLoad(remainingMinutes, checkin.recommendedMinutes);
   // The bar spans all the time the user gave, so the parts add up to it.
   const total = Math.max(1, checkin.availableMinutes);
   const parts: { label: string; minutes: number; className: string; style?: React.CSSProperties }[] = [
@@ -83,7 +86,7 @@ export function CapacityCard({
             of 25 min
           </p>
         </div>
-        {plannedMinutes > 0 && (
+        {remainingMinutes > 0 && (
           <Chip tone={load.overloaded ? "warn" : "xp"}>{load.overloaded ? "Over capacity" : "Balanced day"}</Chip>
         )}
       </div>
@@ -115,7 +118,7 @@ export function CapacityCard({
 
       {load.overloaded && (
         <p className="rounded-card bg-warn-soft px-4 py-3 text-sm text-warn">
-          You&apos;ve planned {formatMinutes(plannedMinutes)}, {formatMinutes(load.overByMinutes)} more than today&apos;s
+          You have {formatMinutes(remainingMinutes)} of missions left, {formatMinutes(load.overByMinutes)} more than today&apos;s
           capacity.{" "}
           {optionalOpen > 0
             ? `Consider moving ${optionalOpen === 1 ? "your Optional mission" : "an Optional mission"} to tomorrow.`

@@ -34,7 +34,7 @@ export function DayView({
   checkin: LatestCheckin | null;
   todayXp: DayXp | null;
   /** The running focus session, if any. */
-  focusSession: { taskTitle: string } | null;
+  focusSession: { taskId: string; taskTitle: string } | null;
   /** Evening reflection state; today's view only. */
   wrapUp: WrapUpState | null;
 }) {
@@ -73,6 +73,9 @@ export function DayView({
           <div className="min-w-0">
             <div className="flex items-center gap-3">
               <p className="text-sm font-semibold tracking-wide text-accent">DAYQUEST</p>
+              <Link href="/settings" className="text-xs text-ink-muted underline-offset-4 hover:underline">
+                Settings
+              </Link>
               <form action={signOut}>
                 <button type="submit" className="text-xs text-ink-muted underline-offset-4 hover:underline">
                   Sign out
@@ -143,6 +146,7 @@ export function DayView({
         <CapacityCard
           checkin={checkin}
           plannedMinutes={plannedMinutes}
+          remainingMinutes={optimistic.filter((m) => m.status !== "done").reduce((sum, m) => sum + m.estimatedMinutes, 0)}
           optionalOpen={optimistic.filter((m) => m.importance === "optional" && m.status !== "done").length}
         />
       )}
@@ -168,6 +172,7 @@ export function DayView({
                 day={day}
                 onToggle={day === "today" ? (done) => toggle(m.id, done) : undefined}
                 canFocus={day === "today" && !focusSession}
+                focusing={focusSession?.taskId === m.id}
               />
             ))}
           </ul>

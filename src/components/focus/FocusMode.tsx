@@ -2,7 +2,14 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState, useSyncExternalStore, useTransition } from "react";
-import { breakMinutes, FOCUS_EARLY_END_MIN_FRACTION, FOCUS_EARLY_END_XP, focusedMs, remainingMs } from "@/engine";
+import {
+  breakMinutes,
+  FOCUS_EARLY_END_MIN_FRACTION,
+  FOCUS_EARLY_END_XP,
+  FOCUS_MIN_SESSION_MIN,
+  focusedMs,
+  remainingMs,
+} from "@/engine";
 import {
   completeFocusMission,
   endFocus,
@@ -288,7 +295,7 @@ function Result({
   onMarkDone: () => void;
   onAgain: () => void;
 }) {
-  const { outcome, xp, focusedMinutes } = result;
+  const { outcome, xp, focusedMinutes, xpReason } = result;
   const heading =
     outcome === "completed" ? "Session complete!" : outcome === "ended_early" ? "Good effort" : "Session ended";
   const detail =
@@ -296,7 +303,13 @@ function Result({
       ? "Short sessions are practice too. No XP this time, and that's okay."
       : xp > 0
         ? `${focusedMinutes} minutes of focus earned +${xp} XP.`
-        : `${focusedMinutes} minutes of focus. You've reached today's focus XP cap, so this one is just for you.`;
+        : xpReason === "capped"
+          ? `${focusedMinutes} minutes of focus. You've reached today's focus XP cap, so this one is just for you.`
+          : xpReason === "pending"
+            ? `${focusedMinutes} minutes of focus. Your XP is being recorded and will show up shortly.`
+            : plannedMinutes < FOCUS_MIN_SESSION_MIN
+              ? `${focusedMinutes} minutes of focus. Sessions under ${FOCUS_MIN_SESSION_MIN} minutes don't earn XP, but they still count as practice.`
+              : `${focusedMinutes} minutes of focus. Ending this early didn't earn XP this time, and that's okay.`;
 
   return (
     <div className="flex w-full flex-col items-center gap-4">

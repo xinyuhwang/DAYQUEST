@@ -141,14 +141,14 @@ isOneToOne: false
                   ]
                 },"profiles": {
                   Row: {
-                    "created_at": string,"day_rollover_hour": number,"id": string,"theme": string,"theme_variants": NonNullable<Json>,"timezone": string,"updated_at": string
+                    "created_at": string,"day_rollover_hour": number,"day_settings_changed_at": string | null,"id": string,"theme": string,"theme_variants": NonNullable<Json>,"timezone": string,"updated_at": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "created_at"?: string,"day_rollover_hour"?: number,"id": string,"theme"?: string,"theme_variants"?: NonNullable<Json>,"timezone"?: string,"updated_at"?: string
+                    "created_at"?: string,"day_rollover_hour"?: number,"day_settings_changed_at"?: string | null,"id": string,"theme"?: string,"theme_variants"?: NonNullable<Json>,"timezone"?: string,"updated_at"?: string
                   }
                   Update: {
-                    "created_at"?: string,"day_rollover_hour"?: number,"id"?: string,"theme"?: string,"theme_variants"?: NonNullable<Json>,"timezone"?: string,"updated_at"?: string
+                    "created_at"?: string,"day_rollover_hour"?: number,"day_settings_changed_at"?: string | null,"id"?: string,"theme"?: string,"theme_variants"?: NonNullable<Json>,"timezone"?: string,"updated_at"?: string
                   }
                   Relationships: [
                     
@@ -275,7 +275,10 @@ isOneToOne: false
                 }
           }
           Functions: {
-            "end_focus_session":
+            "carry_tasks":
+{ Args: { "p_day": string,"p_ids": (string)[],"p_to": string,"p_user": string }; Returns: (string)[]
+                           },
+"end_focus_session":
 { Args: { "p_session_id": string }; Returns: {
               "ended_at": string | null,
 "id": string,
@@ -350,6 +353,9 @@ isOneToOne: false
         isOneToOne: true
         isSetofReturn: false
       } },
+"uncarry_task":
+{ Args: { "p_copy": string,"p_day": string,"p_user": string }; Returns: boolean
+                           },
 "wrap_up_day":
 { Args: { "p_carry": (string)[],"p_day": string,"p_notes": string,"p_to": string,"p_user": string }; Returns: {
               "carried_task_ids": (string)[],

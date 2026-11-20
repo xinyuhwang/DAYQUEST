@@ -1,11 +1,11 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { CUSTOM_FOCUS_RANGE, remainingMs } from "@/engine";
+import { addDays, CUSTOM_FOCUS_RANGE, dayKey, remainingMs } from "@/engine";
 import { getDayContext } from "@/lib/missions/server";
 import { toClock } from "@/lib/focus/server";
 import { setTaskDone } from "@/lib/missions/complete";
-import { syncDailyBonuses, syncFocusXp } from "@/lib/xp/sync";
+import { repairFocusXp, syncDailyBonuses, syncFocusXp, type FocusAwardReason } from "@/lib/xp/sync";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 /** Finish this long after the planned time so the database clock agrees it's complete. */
@@ -19,6 +19,8 @@ export interface FocusResult {
   outcome: "completed" | "ended_early" | "abandoned";
   xp: number;
   focusedMinutes: number;
+  /** Why the XP is what it is; "pending" if recording it failed (repaired later). */
+  xpReason: FocusAwardReason | "pending";
 }
 
 /** Starts a session on one of today's missions and opens focus mode. */
@@ -33,6 +35,11 @@ export async function startFocus(taskId: string, minutes: number): Promise<{ err
   if (task.planned_date !== ctx.today) return { error: "Focus sessions are for today's missions." };
   if (task.status === "done") return { error: "This mission is already done." };
 
+  try {
+    await repairFocusXp(ctx);
+  } catch (e) {
+    console.error(e instanceof Error ? e.message : e);
+  }
   const { error } = await ctx.supabase.rpc("start_focus_session", { p_task_id: taskId, p_planned_min: minutes });
   // 23505: a session is already running. Take the user back to it.
   if (error && error.code !== "23505") return { error: "Couldn't start the session. Please try again." };
@@ -95,15 +102,22 @@ export async function endFocus(
   if (!row?.ended_at || !row.outcome) return { error: "Couldn't end the session. Please try again." };
 
   let xp = 0;
-  try {
-    const award = await syncFocusXp(ctx, sessionId);
-    xp = award.xp;
-    await syncDailyBonuses(ctx, award.day);
-  } catch (e) {
-    console.error(e instanceof Error ? e.message : e);
+  let xpReason: FocusResult["xpReason"] = "pending";
+  // The session has ended, so nothing else would retry a failed XP write.
+  // Try twice here; repairFocusXp catches anything left on the next start or end.
+  for (let attempt = 0; attempt < 2 && xpReason === "pending"; attempt++) {
+    try {
+      const award = await syncFocusXp(ctx, sessionId);
+      xp = award.xp;
+      xpReason = award.reason;
+      await syncDailyBonuses(ctx, award.day);
+      await repairFocusXp(ctx);
+    } catch (e) {
+      console.error(e instanceof Error ? e.message : e);
+    }
   }
   const focusedMinutes = (Date.parse(row.ended_at) - Date.parse(row.started_at) - Number(row.paused_ms)) / 60_000;
-  return { outcome: row.outcome, xp, focusedMinutes: Math.max(0, Math.floor(focusedMinutes)) };
+  return { outcome: row.outcome, xp, xpReason, focusedMinutes: Math.max(0, Math.floor(focusedMinutes)) };
 }
 
 /**
@@ -113,5 +127,18 @@ export async function endFocus(
  */
 export async function completeFocusMission(taskId: string): Promise<{ ok: boolean }> {
   if (!isUuid(taskId)) return { ok: false };
-  return { ok: await setTaskDone(await getDayContext(), taskId, true) };
+  const ctx = await getDayContext();
+  // A session can run past the rollover hour. Its mission then belongs to the
+  // day the session started (where its focus XP went), not the new today.
+  const { data: last } = await ctx.supabase
+    .from("focus_sessions")
+    .select("started_at")
+    .eq("task_id", taskId)
+    .not("ended_at", "is", null)
+    .order("ended_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const day = last ? dayKey(new Date(last.started_at), ctx.timezone, ctx.rolloverHour) : ctx.today;
+  const allowed = day === ctx.today || day === addDays(ctx.today, -1) ? day : ctx.today;
+  return { ok: await setTaskDone(ctx, taskId, true, allowed) };
 }

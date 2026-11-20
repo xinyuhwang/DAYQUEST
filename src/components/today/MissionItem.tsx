@@ -16,6 +16,7 @@ export function MissionItem({
   day,
   onToggle,
   canFocus = false,
+  focusing = false,
 }: {
   mission: Mission;
   day: MissionDay;
@@ -23,9 +24,12 @@ export function MissionItem({
   onToggle?: (done: boolean) => void;
   /** Show the Focus button (today's open missions, when no session is running). */
   canFocus?: boolean;
+  /** A focus session is running on this mission: it can't be moved or deleted. */
+  focusing?: boolean;
 }) {
   const [editing, setEditing] = useState(false);
   const [picking, setPicking] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
   const [busy, startTransition] = useTransition();
   const done = mission.status === "done";
   const xp = taskXp(mission, "completed");
@@ -43,28 +47,49 @@ export function MissionItem({
           onSaved={() => setEditing(false)}
           onCancel={() => setEditing(false)}
           extraActions={
-            <div className="flex flex-wrap gap-2 border-t border-line pt-3 text-sm">
-              {!done && (
+            focusing ? (
+              <p className="border-t border-line pt-3 text-sm text-ink-muted">
+                A focus session is running on this mission. Finish it to move or delete the mission.
+              </p>
+            ) : (
+              <div className="flex flex-wrap items-center gap-2 border-t border-line pt-3 text-sm">
+                {!done && (
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() =>
+                      startTransition(async () => {
+                        const r = await moveMission(mission.id, otherDay);
+                        if (r.ok) setEditing(false);
+                        else setActionError(r.error ?? "Couldn't move the mission.");
+                      })
+                    }
+                    className="rounded-card px-3 py-1.5 text-accent hover:bg-accent-soft disabled:opacity-60"
+                  >
+                    Move to {otherDay}
+                  </button>
+                )}
                 <button
                   type="button"
                   disabled={busy}
-                  onClick={() => startTransition(() => moveMission(mission.id, otherDay).then(() => setEditing(false)))}
-                  className="rounded-card px-3 py-1.5 text-accent hover:bg-accent-soft disabled:opacity-60"
+                  onClick={() => {
+                    if (!window.confirm(`Delete “${mission.title}”?`)) return;
+                    startTransition(async () => {
+                      const r = await deleteMission(mission.id);
+                      if (!r.ok) setActionError(r.error ?? "Couldn't delete the mission.");
+                    });
+                  }}
+                  className="rounded-card px-3 py-1.5 text-warn hover:bg-warn-soft disabled:opacity-60"
                 >
-                  Move to {otherDay}
+                  Delete
                 </button>
-              )}
-              <button
-                type="button"
-                disabled={busy}
-                onClick={() => {
-                  if (window.confirm(`Delete “${mission.title}”?`)) startTransition(() => deleteMission(mission.id).then(() => {}));
-                }}
-                className="rounded-card px-3 py-1.5 text-warn hover:bg-warn-soft disabled:opacity-60"
-              >
-                Delete
-              </button>
-            </div>
+                {actionError && (
+                  <p role="alert" className="w-full text-warn">
+                    {actionError}
+                  </p>
+                )}
+              </div>
+            )
           }
         />
       </li>

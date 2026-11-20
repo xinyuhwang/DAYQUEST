@@ -80,6 +80,8 @@ Five main areas:
 - A "day" runs in the user's local time zone and ends at the **rollover hour**: default **04:00**, adjustable from 00:00 to 06:00 in Settings.
 - Late-night work therefore counts toward the evening it belongs to.
 - The evening reflection prompt appears from **20:00**.
+- ✅ The boundary is the local clock hour, so it stays at the rollover hour on daylight-saving days.
+- ✅ The time zone and rollover hour are set in **Settings** and can change **once every 24 hours**, because they decide which day XP and bonuses land on. First sign-in sets the time zone from the browser.
 
 ---
 
@@ -109,6 +111,8 @@ Five main areas:
   - ✅ A carried mission is **copied** to the next day (linked by `carried_from`, shown with a "Carried over" chip). The original stays on its day as `carried_over`, hidden from the list but kept for history.
   - ✅ Optional missions start unticked; the rest start ticked. Unticked missions stay on their day.
   - ✅ Carrying away an unfinished Critical mission doesn't earn "all critical done": it still counts as planned on its day.
+  - ✅ **"Move to tomorrow"** on one of today's unfinished missions is a carry-over too, so moving a Critical mission away can't earn the bonus either. Moving the copy back to today undoes the carry.
+  - ✅ A mission can't be moved or deleted while a focus session is running on it.
   - ✅ The reflection and the carry-over are written in one server-side transaction, once per day, so a double submit can't carry twice.
   - ✅ **Missed evening:** if a day ended without a reflection and left unfinished missions, the next day's Today page shows "Yesterday's loose ends" to carry them into today. Doing that still earns that day's +10.
   - ✅ The reflection is open from 20:00 until the rollover hour; the server enforces the window. Notes are optional.
@@ -147,6 +151,8 @@ Duration is **not** a term in the task formula, because estimates are self-repor
 
 - **Daily cap:** 120 focus XP (≈ 6 h of focus).
 - Only sessions **linked to a mission** earn focus XP.
+- ✅ A session belongs to the day it **started**, both for its XP and for the "2 focus sessions" bonus. Moving its mission to another day afterwards doesn't move the session.
+- ✅ Sessions under 10 minutes earn no focus XP and don't count toward the "2 focus sessions" bonus.
 - **Custom-length sessions** earn XP proportionally (10 XP per 25 min), and only if they're **at least 10 minutes** long.
 - A session counts only if its server-recorded start/end span covers the required time (§8).
 

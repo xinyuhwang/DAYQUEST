@@ -42,6 +42,26 @@ describe("dayKey", () => {
   });
 });
 
+describe("dayKey on daylight-saving days", () => {
+  // America/New_York falls back at 2026-11-01 02:00 EDT → 01:00 EST,
+  // and springs forward at 2026-03-08 02:00 EST → 03:00 EDT.
+  it("keeps the 04:00 boundary on the fall-back night", () => {
+    expect(dayKey(new Date("2026-11-01T08:30:00Z"), NY)).toBe("2026-10-31"); // 03:30 EST
+    expect(dayKey(new Date("2026-11-01T09:00:00Z"), NY)).toBe("2026-11-01"); // 04:00 EST
+  });
+
+  it("keeps the 04:00 boundary on the spring-forward night", () => {
+    expect(dayKey(new Date("2026-03-08T07:30:00Z"), NY)).toBe("2026-03-07"); // 03:30 EDT
+    expect(dayKey(new Date("2026-03-08T08:00:00Z"), NY)).toBe("2026-03-08"); // 04:00 EDT
+  });
+
+  it("agrees with reflectionOpen at the boundary", () => {
+    const before = new Date("2026-11-01T08:59:00Z"); // 03:59 EST
+    expect(reflectionOpen(before, NY)).toBe(true);
+    expect(dayKey(before, NY)).toBe("2026-10-31");
+  });
+});
+
 describe("reflectionOpen", () => {
   // 2026-11-19 is EST (UTC−5).
   const at = (utc: string) => new Date(`2026-11-19T${utc}Z`);

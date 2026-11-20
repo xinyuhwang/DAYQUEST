@@ -56,7 +56,13 @@ export async function submitCheckin(prev: CheckinFormState, form: FormData): Pro
   const { error: planError } = await admin
     .from("daily_plans")
     .insert({ user_id: ctx.userId, day: ctx.today, checkin_id: checkin.id, xp_target: xpTarget });
-  if (planError) console.error(`Daily plan write failed: ${planError.message}`);
+  if (planError) {
+    // A check-in without its plan would leave the day with no XP target, and
+    // the next re-check-in would set one fresh. Undo it and ask to retry.
+    console.error(`Daily plan write failed: ${planError.message}`);
+    await admin.from("daily_checkins").delete().eq("id", checkin.id);
+    return { ...prev, errors: undefined, message: "Couldn't save your check-in. Please try again." };
+  }
 
   // A lower target may complete the "target reached" bonus right away.
   try {
